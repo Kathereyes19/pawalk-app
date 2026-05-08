@@ -1,0 +1,725 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Plus,
+  Camera,
+  Check,
+  X,
+  Upload,
+  FileText,
+  Calendar,
+  Syringe,
+  Heart,
+  AlertCircle,
+  Edit2,
+  Trash2,
+  ChevronRight,
+  Shield,
+} from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { Button } from '../components/Button';
+import { Input } from '../components/Input';
+import { Card } from '../components/Card';
+import { Badge } from '../components/Badge';
+import { Avatar } from '../components/Avatar';
+import { IconButton } from '../components/IconButton';
+
+interface Pet {
+  id: string;
+  name: string;
+  avatar: string;
+  breed: string;
+  age: number;
+  weight: number;
+  behaviors: string[];
+  vaccinated: boolean;
+  vaccinations?: Vaccination[];
+  gender: 'male' | 'female';
+  species: 'dog' | 'cat';
+}
+
+interface Vaccination {
+  id: string;
+  name: string;
+  date: string;
+  nextDue: string;
+  status: 'current' | 'due-soon' | 'overdue';
+}
+
+export const PetProfileScreen: React.FC = () => {
+  const { t } = useLanguage();
+  const [pets, setPets] = useState<Pet[]>([
+    {
+      id: '1',
+      name: 'Max',
+      avatar: '🐕',
+      breed: 'Labrador Retriever',
+      age: 3,
+      weight: 28,
+      behaviors: ['friendly', 'energetic'],
+      vaccinated: true,
+      gender: 'male',
+      species: 'dog',
+      vaccinations: [
+        {
+          id: 'v1',
+          name: 'Antirrábica',
+          date: '2025-12-01',
+          nextDue: '2026-12-01',
+          status: 'current',
+        },
+        {
+          id: 'v2',
+          name: 'Parvovirus',
+          date: '2025-11-15',
+          nextDue: '2026-05-15',
+          status: 'due-soon',
+        },
+      ],
+    },
+    {
+      id: '2',
+      name: 'Luna',
+      avatar: '🐈',
+      breed: 'Siamés',
+      age: 2,
+      weight: 4,
+      behaviors: ['shy', 'trained'],
+      vaccinated: true,
+      gender: 'female',
+      species: 'cat',
+      vaccinations: [
+        {
+          id: 'v3',
+          name: 'Triple Felina',
+          date: '2025-10-20',
+          nextDue: '2026-10-20',
+          status: 'current',
+        },
+      ],
+    },
+  ]);
+
+  const [showAddPet, setShowAddPet] = useState(false);
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
+  const [showHealthDashboard, setShowHealthDashboard] = useState(false);
+  const [formStep, setFormStep] = useState(1);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Form state
+  const [newPet, setNewPet] = useState<Partial<Pet>>({
+    name: '',
+    breed: '',
+    age: 0,
+    weight: 0,
+    behaviors: [],
+    gender: 'male',
+    species: 'dog',
+    avatar: '',
+  });
+
+  const behaviorOptions = [
+    { id: 'friendly', label: t('pet.friendly'), icon: '😊', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+    { id: 'energetic', label: t('pet.energetic'), icon: '⚡', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' },
+    { id: 'shy', label: t('pet.shy'), icon: '😌', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+    { id: 'trained', label: t('pet.trained'), icon: '🎓', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+    { id: 'playful', label: 'Juguetón', icon: '🎾', color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300' },
+    { id: 'calm', label: 'Tranquilo', icon: '🧘', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' },
+  ];
+
+  const dogBreeds = [
+    'Labrador Retriever', 'Golden Retriever', 'Pastor Alemán', 'Bulldog', 'Beagle',
+    'Poodle', 'Rottweiler', 'Yorkshire Terrier', 'Boxer', 'Dachshund', 'Chihuahua',
+    'Husky Siberiano', 'Pomerania', 'Schnauzer', 'Cocker Spaniel', 'Otro'
+  ];
+
+  const catBreeds = [
+    'Siamés', 'Persa', 'Maine Coon', 'Bengalí', 'Ragdoll',
+    'British Shorthair', 'Sphynx', 'Angora', 'Mestizo', 'Otro'
+  ];
+
+  const avatarOptions = {
+    dog: ['🐕', '🐶', '🦮', '🐕‍🦺', '🐩'],
+    cat: ['🐈', '🐱', '🐈‍⬛', '😺', '😸'],
+  };
+
+  const handleAvatarUpload = () => {
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsUploading(false);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 150);
+  };
+
+  const toggleBehavior = (behaviorId: string) => {
+    setNewPet((prev) => ({
+      ...prev,
+      behaviors: prev.behaviors?.includes(behaviorId)
+        ? prev.behaviors.filter((b) => b !== behaviorId)
+        : [...(prev.behaviors || []), behaviorId],
+    }));
+  };
+
+  const handleSavePet = () => {
+    const petToSave: Pet = {
+      id: Date.now().toString(),
+      name: newPet.name || '',
+      avatar: newPet.avatar || avatarOptions[newPet.species as 'dog' | 'cat'][0],
+      breed: newPet.breed || '',
+      age: newPet.age || 0,
+      weight: newPet.weight || 0,
+      behaviors: newPet.behaviors || [],
+      vaccinated: false,
+      gender: newPet.gender || 'male',
+      species: newPet.species || 'dog',
+      vaccinations: [],
+    };
+
+    setPets([...pets, petToSave]);
+    setShowAddPet(false);
+    setFormStep(1);
+    setNewPet({
+      name: '',
+      breed: '',
+      age: 0,
+      weight: 0,
+      behaviors: [],
+      gender: 'male',
+      species: 'dog',
+      avatar: '',
+    });
+  };
+
+  const getVaccinationStatus = (vaccination: Vaccination) => {
+    const daysUntilDue = Math.floor(
+      (new Date(vaccination.nextDue).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysUntilDue < 0) return { label: 'Vencida', variant: 'destructive' as const, icon: AlertCircle };
+    if (daysUntilDue < 30) return { label: 'Próxima', variant: 'warning' as const, icon: Calendar };
+    return { label: 'Al día', variant: 'success' as const, icon: Check };
+  };
+
+  return (
+    <div className="h-full overflow-y-auto pb-24 bg-background-secondary">
+      {/* Header */}
+      <div className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border p-4 z-10 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{t('nav.pets')}</h1>
+            <p className="text-sm text-muted-foreground">
+              {pets.length} {pets.length === 1 ? 'mascota registrada' : 'mascotas registradas'}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowAddPet(true)}
+          >
+            <Plus className="w-4 h-4" />
+            {t('pet.add')}
+          </Button>
+        </div>
+      </div>
+
+      <div className="p-4">
+        {/* Empty State */}
+        {pets.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12"
+          >
+            <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Heart className="w-12 h-12 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Agrega tu primera mascota</h3>
+            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+              Crea un perfil para tu compañero peludo y mantén su información de salud organizada
+            </p>
+            <Button onClick={() => setShowAddPet(true)}>
+              <Plus className="w-5 h-5" />
+              Agregar mascota
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Pet Cards */}
+        <div className="space-y-3 mb-6">
+          {pets.map((pet, index) => (
+            <motion.div
+              key={pet.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.08 }}
+            >
+              <Card hoverable variant="elevated" padding="lg">
+                <div className="flex gap-4 mb-4">
+                  {/* Pet Avatar */}
+                  <div className="relative">
+                    <Avatar emoji={pet.avatar} size="2xl" className="rounded-2xl" />
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-card border-2 border-background rounded-full flex items-center justify-center">
+                      <span className="text-xs">{pet.gender === 'male' ? '♂️' : '♀️'}</span>
+                    </div>
+                  </div>
+
+                  {/* Pet Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <h3 className="text-xl font-bold">{pet.name}</h3>
+                        <p className="text-sm text-muted-foreground">{pet.breed}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPet(pet);
+                            setShowHealthDashboard(true);
+                          }}
+                        >
+                          <Syringe className="w-4 h-4" />
+                        </IconButton>
+                        <IconButton variant="ghost" size="sm">
+                          <Edit2 className="w-4 h-4" />
+                        </IconButton>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-foreground-secondary">{pet.age} años</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-foreground-secondary">{pet.weight} kg</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {pet.behaviors.slice(0, 3).map((behavior) => {
+                        const option = behaviorOptions.find((b) => b.id === behavior);
+                        return (
+                          <Badge key={behavior} className={option?.color} size="sm">
+                            {option?.icon} {option?.label}
+                          </Badge>
+                        );
+                      })}
+                      {pet.behaviors.length > 3 && (
+                        <Badge variant="default" size="sm">
+                          +{pet.behaviors.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Health Summary */}
+                <div className="pt-4 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Syringe className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">
+                        {pet.vaccinations?.length || 0} vacunas registradas
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedPet(pet);
+                        setShowHealthDashboard(true);
+                      }}
+                      className="flex items-center gap-1 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+                    >
+                      Ver salud
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Add Pet Modal */}
+      <AnimatePresence>
+        {showAddPet && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
+            onClick={() => {
+              setShowAddPet(false);
+              setFormStep(1);
+            }}
+          >
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="w-full max-w-md bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div>
+                  <h2 className="text-2xl font-bold">{t('pet.add')}</h2>
+                  <p className="text-sm text-muted-foreground">Paso {formStep} de 3</p>
+                </div>
+                <IconButton onClick={() => setShowAddPet(false)} variant="ghost">
+                  <X className="w-5 h-5" />
+                </IconButton>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="h-1 bg-muted">
+                <motion.div
+                  className="h-full bg-primary"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${(formStep / 3) * 100}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+
+              {/* Form Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <AnimatePresence mode="wait">
+                  {/* Step 1: Basic Info */}
+                  {formStep === 1 && (
+                    <motion.div
+                      key="step1"
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -20, opacity: 0 }}
+                      className="space-y-6"
+                    >
+                      {/* Species Selection */}
+                      <div>
+                        <label className="block mb-3 font-semibold text-sm">Tipo de mascota</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setNewPet({ ...newPet, species: 'dog' })}
+                            className={`p-4 rounded-2xl border-2 transition-all ${
+                              newPet.species === 'dog'
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <span className="text-4xl mb-2 block">🐕</span>
+                            <span className="font-semibold">Perro</span>
+                          </button>
+                          <button
+                            onClick={() => setNewPet({ ...newPet, species: 'cat' })}
+                            className={`p-4 rounded-2xl border-2 transition-all ${
+                              newPet.species === 'cat'
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <span className="text-4xl mb-2 block">🐈</span>
+                            <span className="font-semibold">Gato</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Avatar Selection */}
+                      <div>
+                        <label className="block mb-3 font-semibold text-sm">Elige un avatar</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {avatarOptions[newPet.species as 'dog' | 'cat'].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => setNewPet({ ...newPet, avatar: emoji })}
+                              className={`w-16 h-16 rounded-2xl border-2 transition-all text-3xl ${
+                                newPet.avatar === emoji
+                                  ? 'border-primary bg-primary/10 scale-110'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                          <button
+                            onClick={handleAvatarUpload}
+                            className="w-16 h-16 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 transition-all flex items-center justify-center"
+                          >
+                            {isUploading ? (
+                              <div className="relative w-8 h-8">
+                                <svg className="w-8 h-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                              </div>
+                            ) : (
+                              <Camera className="w-6 h-6 text-muted-foreground" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Name */}
+                      <Input
+                        label="Nombre de tu mascota"
+                        placeholder="Max"
+                        value={newPet.name}
+                        onChange={(e) => setNewPet({ ...newPet, name: e.target.value })}
+                      />
+
+                      {/* Gender */}
+                      <div>
+                        <label className="block mb-3 font-semibold text-sm">Sexo</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setNewPet({ ...newPet, gender: 'male' })}
+                            className={`p-3 rounded-xl border-2 transition-all ${
+                              newPet.gender === 'male'
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            ♂️ Macho
+                          </button>
+                          <button
+                            onClick={() => setNewPet({ ...newPet, gender: 'female' })}
+                            className={`p-3 rounded-xl border-2 transition-all ${
+                              newPet.gender === 'female'
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            ♀️ Hembra
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 2: Physical Details */}
+                  {formStep === 2 && (
+                    <motion.div
+                      key="step2"
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -20, opacity: 0 }}
+                      className="space-y-5"
+                    >
+                      {/* Breed */}
+                      <div>
+                        <label className="block mb-3 font-semibold text-sm">Raza</label>
+                        <select
+                          value={newPet.breed}
+                          onChange={(e) => setNewPet({ ...newPet, breed: e.target.value })}
+                          className="w-full h-12 px-4 rounded-xl bg-input-background border border-input-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        >
+                          <option value="">Selecciona una raza</option>
+                          {(newPet.species === 'dog' ? dogBreeds : catBreeds).map((breed) => (
+                            <option key={breed} value={breed}>{breed}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Age and Weight */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Edad (años)"
+                          type="number"
+                          placeholder="3"
+                          value={newPet.age || ''}
+                          onChange={(e) => setNewPet({ ...newPet, age: parseInt(e.target.value) || 0 })}
+                        />
+                        <Input
+                          label="Peso (kg)"
+                          type="number"
+                          placeholder="28"
+                          value={newPet.weight || ''}
+                          onChange={(e) => setNewPet({ ...newPet, weight: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 3: Behavior */}
+                  {formStep === 3 && (
+                    <motion.div
+                      key="step3"
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -20, opacity: 0 }}
+                      className="space-y-5"
+                    >
+                      <div>
+                        <label className="block mb-3 font-semibold text-sm">
+                          Personalidad (selecciona todas las que apliquen)
+                        </label>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Esto ayuda a los paseadores a conocer mejor a {newPet.name || 'tu mascota'}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {behaviorOptions.map((option) => {
+                            const isSelected = newPet.behaviors?.includes(option.id);
+                            return (
+                              <button
+                                key={option.id}
+                                onClick={() => toggleBehavior(option.id)}
+                                className={`p-4 rounded-2xl border-2 transition-all text-left relative ${
+                                  isSelected
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <span className="text-2xl">{option.icon}</span>
+                                  {isSelected && (
+                                    <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                                      <Check className="w-4 h-4 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="font-medium text-sm">{option.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 pb-safe border-t border-border flex gap-3">
+                {formStep > 1 && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setFormStep(formStep - 1)}
+                  >
+                    Atrás
+                  </Button>
+                )}
+                <Button
+                  fullWidth
+                  onClick={() => {
+                    if (formStep < 3) {
+                      setFormStep(formStep + 1);
+                    } else {
+                      handleSavePet();
+                    }
+                  }}
+                  disabled={
+                    (formStep === 1 && (!newPet.name || !newPet.avatar)) ||
+                    (formStep === 2 && (!newPet.breed || !newPet.age || !newPet.weight))
+                  }
+                >
+                  {formStep === 3 ? 'Guardar mascota' : 'Siguiente'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Health Dashboard Modal */}
+      <AnimatePresence>
+        {showHealthDashboard && selectedPet && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
+            onClick={() => setShowHealthDashboard(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="w-full max-w-md bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <Avatar emoji={selectedPet.avatar} size="md" className="rounded-xl" />
+                  <div>
+                    <h2 className="text-xl font-bold">Salud de {selectedPet.name}</h2>
+                    <p className="text-sm text-muted-foreground">Historial médico</p>
+                  </div>
+                </div>
+                <IconButton onClick={() => setShowHealthDashboard(false)} variant="ghost">
+                  <X className="w-5 h-5" />
+                </IconButton>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {/* Vaccinations */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <Syringe className="w-5 h-5 text-primary" />
+                      Vacunas
+                    </h3>
+                    <Button variant="ghost" size="sm">
+                      <Plus className="w-4 h-4" />
+                      Agregar
+                    </Button>
+                  </div>
+
+                  {selectedPet.vaccinations && selectedPet.vaccinations.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedPet.vaccinations.map((vaccination) => {
+                        const status = getVaccinationStatus(vaccination);
+                        const StatusIcon = status.icon;
+                        return (
+                          <Card key={vaccination.id} variant="bordered" padding="md">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <h4 className="font-semibold mb-1">{vaccination.name}</h4>
+                                <div className="space-y-1 text-sm text-muted-foreground">
+                                  <p>Aplicada: {new Date(vaccination.date).toLocaleDateString()}</p>
+                                  <p>Próxima: {new Date(vaccination.nextDue).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                              <Badge variant={status.variant} size="sm">
+                                <StatusIcon className="w-3.5 h-3.5" />
+                                {status.label}
+                              </Badge>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Card variant="bordered" padding="lg" className="text-center">
+                      <Syringe className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                      <p className="text-sm text-muted-foreground mb-3">
+                        No hay vacunas registradas
+                      </p>
+                      <Button variant="outline" size="sm">
+                        <Plus className="w-4 h-4" />
+                        Agregar primera vacuna
+                      </Button>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
