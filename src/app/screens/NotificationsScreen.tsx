@@ -139,63 +139,6 @@ export const NotificationsScreen: React.FC = () => {
     },
   ]);
 
-  const notifications = [
-    {
-      id: '1',
-      type: 'success',
-      icon: CheckCircle2,
-      title: t('notif.booking.confirmed'),
-      message: 'Tu paseo con María González está confirmado para el 8 de Mayo a las 10:00',
-      time: 'Hace 2 horas',
-      unread: true,
-    },
-    {
-      id: '2',
-      type: 'info',
-      icon: PlayCircle,
-      title: t('notif.walk.started'),
-      message: 'María ha comenzado el paseo con Max. Seguimiento en vivo disponible.',
-      time: 'Hace 5 horas',
-      unread: true,
-    },
-    {
-      id: '3',
-      type: 'success',
-      icon: CheckCircle2,
-      title: t('notif.walk.completed'),
-      message: 'Paseo completado exitosamente. Max caminó 2.3 km en 60 minutos.',
-      time: 'Ayer',
-      unread: false,
-    },
-    {
-      id: '4',
-      type: 'info',
-      icon: CreditCard,
-      title: t('notif.payment.confirmed'),
-      message: 'Pago de $17,250 procesado correctamente.',
-      time: 'Ayer',
-      unread: false,
-    },
-    {
-      id: '5',
-      type: 'warning',
-      icon: Syringe,
-      title: t('notif.vaccination.reminder'),
-      message: 'La vacuna antirrábica de Luna vence en 15 días.',
-      time: 'Hace 2 días',
-      unread: false,
-    },
-    {
-      id: '6',
-      type: 'info',
-      icon: Calendar,
-      title: 'Nueva disponibilidad',
-      message: 'Carlos Ramírez tiene horarios disponibles este fin de semana.',
-      time: 'Hace 3 días',
-      unread: false,
-    },
-  ];
-
   const handleMarkAsRead = (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n))

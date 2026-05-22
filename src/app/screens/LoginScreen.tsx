@@ -7,6 +7,7 @@ import { Input } from '../components/Input';
 import { IconButton } from '../components/IconButton';
 import { Divider } from '../components/Divider';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
+import { signInWithEmail, validateSignIn } from '@/features/auth';
 
 interface LoginScreenProps {
   onBack: () => void;
@@ -23,48 +24,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, onLogin, onSig
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const validateEmail = (email: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Reset errors
     setErrors({});
 
-    // Validation
-    const newErrors: { email?: string; password?: string } = {};
-
-    if (!email) {
-      newErrors.email = 'El correo es requerido';
-    } else if (!validateEmail(email)) {
-      newErrors.email = 'Ingresa un correo válido';
-    }
-
-    if (!password) {
-      newErrors.password = 'La contraseña es requerida';
-    } else if (password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
-    }
-
+    const newErrors = validateSignIn({ email, password });
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    // Simulate API call
     setIsLoading(true);
 
-    setTimeout(() => {
+    const result = await signInWithEmail({ email, password });
+
+    if (result.error) {
+      setIsLoading(false);
+      const field = result.error.field ?? 'email';
+      setErrors({ [field]: result.error.message });
+      return;
+    }
+
+    const finishLogin = () => {
       setIsLoading(false);
       setShowSuccess(true);
-
       setTimeout(() => {
         onLogin();
       }, 1500);
-    }, 2000);
+    };
+
+    if (result.mode === 'mock') {
+      setTimeout(finishLogin, 2000);
+    } else {
+      finishLogin();
+    }
   };
 
   return (

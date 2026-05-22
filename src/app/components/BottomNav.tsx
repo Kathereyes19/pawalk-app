@@ -3,10 +3,11 @@ import { Home, Calendar, PawPrint, User } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { cn } from '../utils/cn';
+import type { BottomNavTab } from '@/navigation';
 
 interface BottomNavProps {
-  activeTab: 'home' | 'bookings' | 'pets' | 'profile';
-  onTabChange: (tab: 'home' | 'bookings' | 'pets' | 'profile') => void;
+  activeTab: BottomNavTab;
+  onTabChange: (tab: BottomNavTab) => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {

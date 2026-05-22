@@ -7,6 +7,7 @@ import { Input } from '../components/Input';
 import { IconButton } from '../components/IconButton';
 import { Divider } from '../components/Divider';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
+import { signUpWithEmail, validateSignUp } from '@/features/auth';
 
 interface SignUpScreenProps {
   onBack: () => void;
@@ -24,11 +25,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, on
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; terms?: string }>({});
   const [showSuccess, setShowSuccess] = useState(false);
-
-  const validateEmail = (email: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  };
 
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: '', color: '' };
@@ -54,50 +50,48 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Reset errors
     setErrors({});
 
-    // Validation
-    const newErrors: { name?: string; email?: string; password?: string; terms?: string } = {};
-
-    if (!name) {
-      newErrors.name = 'El nombre es requerido';
-    } else if (name.length < 2) {
-      newErrors.name = 'El nombre debe tener al menos 2 caracteres';
-    }
-
-    if (!email) {
-      newErrors.email = 'El correo es requerido';
-    } else if (!validateEmail(email)) {
-      newErrors.email = 'Ingresa un correo válido';
-    }
-
-    if (!password) {
-      newErrors.password = 'La contraseña es requerida';
-    } else if (password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
-    }
-
-    if (!acceptTerms) {
-      newErrors.terms = 'Debes aceptar los términos y condiciones';
-    }
+    const newErrors = validateSignUp(
+      { fullName: name, email, password },
+      acceptTerms
+    );
 
     if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+      setErrors({
+        name: newErrors.fullName,
+        email: newErrors.email,
+        password: newErrors.password,
+        terms: newErrors.terms,
+      });
       return;
     }
 
-    // Simulate API call
     setIsLoading(true);
 
-    setTimeout(() => {
+    const result = await signUpWithEmail({ fullName: name, email, password });
+
+    if (result.error) {
+      setIsLoading(false);
+      const field = result.error.field ?? 'email';
+      const mappedField = field === 'name' ? 'name' : field;
+      setErrors({ [mappedField]: result.error.message });
+      return;
+    }
+
+    const finishSignUp = () => {
       setIsLoading(false);
       setShowSuccess(true);
-
       setTimeout(() => {
         onSignUp();
       }, 2000);
-    }, 2500);
+    };
+
+    if (result.mode === 'mock') {
+      setTimeout(finishSignUp, 2500);
+    } else {
+      finishSignUp();
+    }
   };
 
   return (

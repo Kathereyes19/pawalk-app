@@ -1,9 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+/**
+ * @deprecated Prefer `import { getSupabaseClient } from '@/lib/supabase/client'`.
+ * This file exists so `@/lib/supabase` resolves without conflicting with the `supabase/` folder.
+ */
+export { getSupabaseClient } from './supabase/client';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-)
+/** @deprecated Use getSupabaseClient() */
+export { getSupabaseClient as supabase } from './supabase/client';
