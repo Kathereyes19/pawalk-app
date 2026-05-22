@@ -172,6 +172,14 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-background-secondary: var(--background-secondary);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-input-background: var(--input-background);
@@ -294,5 +302,32 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  @keyframes home-map-user-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35); }
+    50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  }
+
+  @keyframes home-map-live-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+
+  .home-map-user-pulse {
+    animation: home-map-user-pulse 3.5s ease-in-out infinite;
+  }
+
+  .home-map-live-dot {
+    animation: home-map-live-dot 2.8s ease-in-out infinite;
+  }
+
+  .home-map-pin-live {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+    animation: home-map-user-pulse 4s ease-in-out infinite;
+  }
+
+  .tracking-route-traveled {
+    filter: drop-shadow(0 0 2px rgba(255, 107, 53, 0.35));
   }
 }

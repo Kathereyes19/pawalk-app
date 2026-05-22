@@ -76,5 +76,55 @@ create policy "Users can manage own pet vaccinations"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- Bookings (extend when checkout is wired)
--- create table public.bookings (...);
+-- Bookings / reservations
+create table if not exists public.bookings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  walker_id text not null,
+  walker_name text not null,
+  walker_avatar text,
+  pet_id uuid references public.pets (id) on delete set null,
+  pet_name text not null,
+  scheduled_date date not null,
+  scheduled_time time not null,
+  duration_minutes int not null default 60,
+  status text not null default 'scheduled'
+    check (status in ('scheduled', 'active', 'completed', 'cancelled')),
+  service_price numeric not null default 0,
+  platform_fee numeric not null default 0,
+  insurance_fee numeric not null default 0,
+  total_price numeric not null default 0,
+  payment_method text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  summary_distance_km numeric,
+  summary_duration_minutes int,
+  summary_pace_kmh numeric,
+  summary_calories int,
+  pet_ids uuid[] not null default '{}',
+  pet_names text[] not null default '{}',
+  pet_avatars text[] default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists bookings_user_id_idx on public.bookings (user_id);
+create index if not exists bookings_status_idx on public.bookings (status);
+create index if not exists bookings_scheduled_date_idx on public.bookings (scheduled_date desc);
+
+alter table public.bookings enable row level security;
+
+create policy "Users can read own bookings"
+  on public.bookings for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own bookings"
+  on public.bookings for insert
+  with check (auth.uid() = user_id);
+
+-- Multi-pet columns (safe for existing databases)
+alter table public.bookings add column if not exists pet_ids uuid[] not null default '{}';
+alter table public.bookings add column if not exists pet_names text[] not null default '{}';
+alter table public.bookings add column if not exists pet_avatars text[] default '{}';
+alter table public.bookings add column if not exists summary_pace_kmh numeric;
+alter table public.bookings add column if not exists summary_calories int;

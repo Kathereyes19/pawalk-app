@@ -1,20 +1,36 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { buildUpcomingBookingDates } from '@/lib/bookingDates';
+import { calculateBookingTotals } from '@/features/reservations';
+import {
+  canBookImmediately,
+  filterDatesForWalker,
+  filterTimeSlotsForWalker,
+  getSuggestedBookingSlot,
+  getWalkerAvailabilityValidationMessage,
+  isBeforeWalkerAvailability,
+} from '@/lib/walkers/availability';
+import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { IconButton } from '../components/IconButton';
+import { TermsAcceptanceCheckbox } from '../components/booking/TermsAcceptanceCheckbox';
+import { PetSelectionPicker } from '../components/booking/PetSelectionPicker';
+import type { Walker, Pet, BookingData } from '@/types';
 
 interface BookingScreenProps {
-  walker: any;
+  walker: Walker;
+  pets: Pet[];
   onBack: () => void;
-  onContinue: (bookingData: any) => void;
+  onContinue: (bookingData: BookingData) => void;
 }
 
 export const BookingScreen: React.FC<BookingScreenProps> = ({
   walker,
+  pets,
   onBack,
   onContinue,
 }) => {
@@ -22,51 +38,114 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedDuration, setSelectedDuration] = useState<30 | 60 | 90>(60);
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>(() =>
+    pets.length > 0 ? [pets[0].id] : []
+  );
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsDetail, setShowTermsDetail] = useState(false);
   const [validationError, setValidationError] = useState<string>('');
 
-  const availableDates = [
-    { date: '2026-05-08', label: 'Vie', day: '8', month: 'May', available: true, popular: false },
-    { date: '2026-05-09', label: 'Sáb', day: '9', month: 'May', available: true, popular: true },
-    { date: '2026-05-10', label: 'Dom', day: '10', month: 'May', available: true, popular: true },
-    { date: '2026-05-11', label: 'Lun', day: '11', month: 'May', available: true, popular: false },
-    { date: '2026-05-12', label: 'Mar', day: '12', month: 'May', available: false, popular: false },
-  ];
+  const instantBooking = canBookImmediately(walker);
+  const suggestedSlot = useMemo(() => getSuggestedBookingSlot(walker), [walker]);
 
-  const timeSlots = [
-    { time: '08:00', available: true, popular: false },
-    { time: '09:00', available: true, popular: true },
-    { time: '10:00', available: true, popular: true },
-    { time: '11:00', available: false, popular: false },
-    { time: '14:00', available: true, popular: false },
-    { time: '15:00', available: true, popular: false },
-    { time: '16:00', available: true, popular: true },
-    { time: '17:00', available: true, popular: false },
-    { time: '18:00', available: true, popular: true },
-  ];
+  const baseTimeSlots = useMemo(
+    () => [
+      { time: '08:00', available: true, popular: false },
+      { time: '09:00', available: true, popular: true },
+      { time: '10:00', available: true, popular: true },
+      { time: '11:00', available: true, popular: false },
+      { time: '14:00', available: true, popular: false },
+      { time: '15:00', available: true, popular: false },
+      { time: '16:00', available: true, popular: true },
+      { time: '17:00', available: true, popular: false },
+      { time: '18:00', available: true, popular: true },
+    ],
+    []
+  );
 
-  const durations = [
-    {
-      value: 30,
-      label: t('booking.30min'),
-      price: walker.price * 0.6,
-      description: 'Paseo corto ideal para cachorros',
-    },
-    {
-      value: 60,
-      label: t('booking.60min'),
-      price: walker.price,
-      description: 'Paseo estándar recomendado',
-      recommended: true,
-    },
-    {
-      value: 90,
-      label: t('booking.90min'),
-      price: walker.price * 1.4,
-      description: 'Paseo extenso con tiempo de juego',
-    },
-  ];
+  const availableDates = useMemo(
+    () => filterDatesForWalker(buildUpcomingBookingDates(7), walker, baseTimeSlots),
+    [walker, baseTimeSlots]
+  );
+
+  const effectiveDate = selectedDate || availableDates.find((d) => d.available)?.date || '';
+  const timeSlots = useMemo(
+    () => filterTimeSlotsForWalker(effectiveDate, baseTimeSlots, walker),
+    [effectiveDate, baseTimeSlots, walker]
+  );
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime('');
+    setValidationError('');
+  };
+
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    setValidationError('');
+  };
+
+  React.useEffect(() => {
+    if (selectedDate) return;
+
+    if (!instantBooking && suggestedSlot?.date) {
+      setSelectedDate(suggestedSlot.date);
+      if (suggestedSlot.time) {
+        setSelectedTime(suggestedSlot.time);
+      }
+      return;
+    }
+
+    const firstAvailable = availableDates.find((entry) => entry.available);
+    if (firstAvailable) {
+      setSelectedDate(firstAvailable.date);
+    }
+  }, [availableDates, selectedDate, instantBooking, suggestedSlot]);
+
+  useEffect(() => {
+    if (!selectedDate || !selectedTime) return;
+    const slotStillValid = timeSlots.some(
+      (slot) => slot.time === selectedTime && slot.available
+    );
+    if (!slotStillValid) {
+      setSelectedTime('');
+    }
+  }, [selectedDate, selectedTime, timeSlots]);
+
+  useEffect(() => {
+    if (pets.length === 0) {
+      setSelectedPetIds([]);
+      return;
+    }
+    setSelectedPetIds((current) => {
+      const valid = current.filter((id) => pets.some((pet) => pet.id === id));
+      if (valid.length > 0) return valid;
+      return [pets[0].id];
+    });
+  }, [pets]);
+
+  const selectedPetCount = Math.max(1, selectedPetIds.length || (pets.length > 0 ? 1 : 0));
+
+  const durations = useMemo(
+    () =>
+      ([30, 60, 90] as const).map((value) => {
+        const totals = calculateBookingTotals(walker.price, value, selectedPetCount);
+        const descriptions: Record<30 | 60 | 90, string> = {
+          30: 'Paseo corto ideal para cachorros',
+          60: 'Paseo estándar recomendado',
+          90: 'Paseo extenso con tiempo de juego',
+        };
+        return {
+          value,
+          label: value === 30 ? t('booking.30min') : value === 60 ? t('booking.60min') : t('booking.90min'),
+          price: totals.totalPrice,
+          servicePrice: totals.servicePrice,
+          description: descriptions[value],
+          recommended: value === 60,
+        };
+      }),
+    [walker.price, selectedPetCount, t]
+  );
 
   const handleContinue = () => {
     if (!selectedDate) {
@@ -81,17 +160,35 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       setValidationError('Debes aceptar los términos y condiciones');
       return;
     }
+    if (selectedPetIds.length === 0) {
+      setValidationError('Selecciona al menos una mascota');
+      return;
+    }
+    if (isBeforeWalkerAvailability(selectedDate, selectedTime, walker)) {
+      setValidationError(getWalkerAvailabilityValidationMessage(walker));
+      return;
+    }
 
     setValidationError('');
+    const selectedPets = pets
+      .filter((pet) => selectedPetIds.includes(pet.id))
+      .map((pet) => ({ id: pet.id, name: pet.name, avatar: pet.avatar }));
+    const totals = calculateBookingTotals(walker.price, selectedDuration, selectedPets.length);
+
     onContinue({
       date: selectedDate,
       time: selectedTime,
       duration: selectedDuration,
+      pets: selectedPets,
+      petIds: selectedPetIds,
+      serviceFee: totals.servicePrice,
+      platformFee: totals.platformFee,
+      total: totals.totalPrice,
     });
   };
 
   const selectedDurationData = durations.find((d) => d.value === selectedDuration);
-  const calculatedPrice = selectedDurationData?.price || walker.price;
+  const calculatedPrice = selectedDurationData?.price ?? calculateBookingTotals(walker.price, selectedDuration, selectedPetCount).totalPrice;
 
   return (
     <div className="h-full overflow-y-auto pb-32 bg-background-secondary">
@@ -150,6 +247,46 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       </div>
 
       <div className="p-4 space-y-6">
+        {!instantBooking && (
+          <Card className="border-warning/30 bg-warning/10">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="font-semibold text-sm">
+                  Este paseador no está disponible de inmediato
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Puedes agendar para su próximo horario disponible. Revisa la fecha y hora sugeridas abajo.
+                </p>
+                <WalkerAvailabilityBadge walker={walker} size="md" />
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Pet Selection */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <PawPrint className="w-5 h-5 text-primary" />
+              Mascotas
+            </h2>
+            {selectedPetIds.length > 0 && (
+              <span className="text-sm font-medium text-primary">
+                {selectedPetIds.length} seleccionada{selectedPetIds.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <PetSelectionPicker
+            pets={pets}
+            selectedIds={selectedPetIds}
+            onChange={(ids) => {
+              setSelectedPetIds(ids);
+              setValidationError('');
+            }}
+          />
+        </div>
+
         {/* Date Selection */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -173,7 +310,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
             {availableDates.map((dateOption, index) => (
               <motion.button
                 key={dateOption.date}
-                onClick={() => dateOption.available && setSelectedDate(dateOption.date)}
+                onClick={() => dateOption.available && handleDateSelect(dateOption.date)}
                 whileTap={dateOption.available ? { scale: 0.95 } : {}}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -203,6 +340,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               </motion.button>
             ))}
           </div>
+          {!instantBooking && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Las fechas anteriores a la disponibilidad del paseador aparecen deshabilitadas.
+            </p>
+          )}
         </div>
 
         {/* Time Selection */}
@@ -234,7 +376,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                 {timeSlots.map((slot, index) => (
                   <motion.button
                     key={slot.time}
-                    onClick={() => slot.available && setSelectedTime(slot.time)}
+                    onClick={() => slot.available && handleTimeSelect(slot.time)}
                     whileTap={slot.available ? { scale: 0.95 } : {}}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -340,7 +482,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                           {duration.value !== 60 && (
                             <p className="text-xs text-muted-foreground">
                               {duration.value > 60 ? '+' : ''}
-                              {Math.round(((duration.price - walker.price) / walker.price) * 100)}%
+                              {Math.round(((duration.servicePrice / calculateBookingTotals(walker.price, 60, selectedPetCount).servicePrice) - 1) * 100)}%
                             </p>
                           )}
                         </div>
@@ -437,38 +579,15 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                   </AnimatePresence>
                 </div>
 
-                <motion.label
-                  className={`flex items-start gap-3 cursor-pointer group p-3 rounded-xl transition-all ${
-                    acceptedTerms ? 'bg-success/10' : 'bg-muted/50 hover:bg-muted'
-                  }`}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <button
-                    type="button"
-                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                      acceptedTerms
-                        ? 'border-success bg-success shadow-sm'
-                        : 'border-border group-hover:border-primary/50'
-                    }`}
-                    onClick={() => {
-                      setAcceptedTerms(!acceptedTerms);
-                      setValidationError('');
-                    }}
-                  >
-                    {acceptedTerms && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 500 }}
-                      >
-                        <Check className="w-4 h-4 text-white" />
-                      </motion.div>
-                    )}
-                  </button>
-                  <span className="text-sm leading-relaxed font-medium">
-                    {t('booking.accept')}
-                  </span>
-                </motion.label>
+                <TermsAcceptanceCheckbox
+                  checked={acceptedTerms}
+                  onChange={(value) => {
+                    setAcceptedTerms(value);
+                    setValidationError('');
+                  }}
+                  label={t('booking.accept')}
+                  acceptedHint={t('booking.accept.confirmed')}
+                />
               </Card>
             </motion.div>
           )}
@@ -510,7 +629,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                 exit={{ opacity: 0, height: 0 }}
                 className="mb-3 p-3 bg-muted/50 rounded-xl"
               >
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                  <div>
+                    <p className="text-muted-foreground mb-1">Mascotas</p>
+                    <p className="font-semibold">{selectedPetIds.length || 1}</p>
+                  </div>
                   <div>
                     <p className="text-muted-foreground mb-1">Fecha</p>
                     <p className="font-semibold">
@@ -535,7 +658,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
             fullWidth
             size="xl"
             onClick={handleContinue}
-            disabled={!selectedDate || !selectedTime || !acceptedTerms}
+            disabled={!selectedDate || !selectedTime || !acceptedTerms || selectedPetIds.length === 0}
             className="shadow-xl"
           >
             {selectedDate && selectedTime && acceptedTerms ? (

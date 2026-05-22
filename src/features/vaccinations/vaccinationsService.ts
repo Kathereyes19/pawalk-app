@@ -5,6 +5,7 @@ import { loadStoredUserBundle, saveStoredUserBundle } from '@/lib/userStorage';
 import type { Pet, Vaccination, VaccinationRow } from '@/types';
 
 function deriveStatus(nextDue: string): Vaccination['status'] {
+  if (!nextDue) return 'current';
   const days = Math.floor(
     (new Date(nextDue).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
@@ -75,7 +76,7 @@ export async function fetchVaccinationsForPet(
 export interface VaccinationInput {
   name: string;
   date: string;
-  nextDue: string;
+  nextDue?: string;
   cardImageUrl?: string | null;
 }
 
@@ -88,8 +89,8 @@ export async function addVaccination(
     id: createPetId(),
     name: input.name,
     date: input.date,
-    nextDue: input.nextDue,
-    status: deriveStatus(input.nextDue),
+    nextDue: input.nextDue ?? '',
+    status: deriveStatus(input.nextDue ?? ''),
     cardImageUrl: input.cardImageUrl ?? undefined,
   };
 
@@ -111,7 +112,7 @@ export async function addVaccination(
       user_id: userId,
       name: input.name,
       administered_date: input.date,
-      next_due_date: input.nextDue,
+      next_due_date: input.nextDue || null,
       card_image_url: input.cardImageUrl ?? null,
     })
     .select()

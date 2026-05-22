@@ -1,35 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Phone, MessageSquare, AlertCircle, MapPin, Clock, Navigation, Play, Pause, Camera, Heart, CheckCircle2, TrendingUp, Shield, Zap, Activity } from 'lucide-react';
+import { ArrowLeft, Phone, MessageSquare, AlertCircle, MapPin, Clock, Navigation, Play, Pause, Heart, CheckCircle2, TrendingUp, Shield, Activity } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getElapsedWalkSeconds, getWalkProgress } from '@/features/reservations';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconButton } from '../components/IconButton';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
+import type { Reservation, Walker } from '@/types';
+import { TrackingMapCanvas } from '../components/map/TrackingMapCanvas';
 
 interface LiveTrackingScreenProps {
-  walker: any;
+  walker: Walker;
+  reservation?: Reservation | null;
   onBack: () => void;
+  onWalkComplete?: (reservationId: string, summary?: { distanceKm?: number; durationMinutes?: number }) => void;
 }
 
 export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   walker,
+  reservation,
   onBack,
+  onWalkComplete,
 }) => {
   const { t } = useLanguage();
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const [walkStatus, setWalkStatus] = useState<'on-way' | 'started' | 'break' | 'completed'>('on-way');
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [walkStatus, setWalkStatus] = useState<'on-way' | 'started' | 'break' | 'completed'>(
+    reservation ? 'started' : 'on-way'
+  );
+  const [elapsedTime, setElapsedTime] = useState(() =>
+    reservation ? getElapsedWalkSeconds(reservation) : 0
+  );
   const [eta, setEta] = useState(5);
-  const [distance, setDistance] = useState(0);
+  const [distance, setDistance] = useState(
+    reservation?.summaryDistanceKm ? reservation.summaryDistanceKm * 0.4 : 0
+  );
   const [currentSpeed, setCurrentSpeed] = useState(4.2);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationText, setNotificationText] = useState('');
-  const [walkerPosition, setWalkerPosition] = useState(0);
+  const [walkerPosition, setWalkerPosition] = useState(() =>
+    reservation ? getWalkProgress(reservation) : 0
+  );
   const [photos, setPhotos] = useState<number>(0);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [heartRate, setHeartRate] = useState(85);
+  const [displayProgress, setDisplayProgress] = useState(() =>
+    reservation ? getWalkProgress(reservation) : 0
+  );
+  const hasCompletedRef = useRef(false);
+
+  const targetDurationSeconds = useMemo(
+    () => (reservation?.durationMinutes ?? 60) * 60,
+    [reservation?.durationMinutes]
+  );
+
+  const targetProgress = useMemo(() => {
+    if (!reservation) return walkerPosition;
+    return Math.max(getWalkProgress(reservation), walkerPosition);
+  }, [reservation, walkerPosition]);
+
+  useEffect(() => {
+    let frame = 0;
+    let active = true;
+
+    const animate = () => {
+      if (!active) return;
+      setDisplayProgress((prev) => {
+        const delta = targetProgress - prev;
+        if (Math.abs(delta) < 0.08) {
+          active = false;
+          return targetProgress;
+        }
+        frame = requestAnimationFrame(animate);
+        return prev + delta * 0.12;
+      });
+    };
+
+    frame = requestAnimationFrame(animate);
+    return () => {
+      active = false;
+      cancelAnimationFrame(frame);
+    };
+  }, [targetProgress]);
 
   // Simulate map loading
   useEffect(() => {
@@ -40,7 +93,62 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    // Simulate walk progression
+    if (!reservation) return;
+
+    const syncTimer = setInterval(() => {
+      setElapsedTime(getElapsedWalkSeconds(reservation));
+      setWalkerPosition((prev) => Math.max(prev, getWalkProgress(reservation)));
+    }, 1000);
+
+    return () => clearInterval(syncTimer);
+  }, [reservation]);
+
+  useEffect(() => {
+    if (walkStatus !== 'started' && walkStatus !== 'break') return;
+
+    const moveTimer = setInterval(() => {
+      setWalkerPosition((prev) => {
+        const increment = 100 / Math.max(targetDurationSeconds / 3, 60);
+        return Math.min(100, prev + increment);
+      });
+      setDistance((prev) => prev + 0.015);
+      setCurrentSpeed(3.8 + Math.sin(Date.now() / 4000) * 0.6);
+    }, 3000);
+
+    return () => clearInterval(moveTimer);
+  }, [walkStatus, targetDurationSeconds]);
+
+  useEffect(() => {
+    if (walkStatus !== 'started' && walkStatus !== 'break') return;
+    if (walkerPosition < 100 && elapsedTime < targetDurationSeconds) return;
+    if (hasCompletedRef.current) return;
+
+    hasCompletedRef.current = true;
+    setWalkStatus('completed');
+    setNotificationText(t('tracking.completed'));
+    setShowNotification(true);
+
+    if (reservation && onWalkComplete) {
+      onWalkComplete(reservation.id, {
+        distanceKm: Number(distance.toFixed(1)),
+        durationMinutes: Math.round(elapsedTime / 60),
+      });
+    }
+  }, [
+    walkStatus,
+    walkerPosition,
+    elapsedTime,
+    targetDurationSeconds,
+    reservation,
+    onWalkComplete,
+    distance,
+    t,
+  ]);
+
+  useEffect(() => {
+    // Simulate walk progression when no reservation context
+    if (reservation) return;
+
     const statusTimer = setTimeout(() => {
       if (walkStatus === 'on-way') {
         setWalkStatus('started');
@@ -51,9 +159,11 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
     }, 5000);
 
     return () => clearTimeout(statusTimer);
-  }, [walkStatus]);
+  }, [walkStatus, reservation]);
 
   useEffect(() => {
+    if (reservation) return;
+
     // Update elapsed time when walk is started
     if (walkStatus === 'started' || walkStatus === 'break') {
       const timer = setInterval(() => {
@@ -74,15 +184,17 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   }, [walkStatus, eta]);
 
   useEffect(() => {
-    // Simulate walker movement
+    if (reservation) return;
+
     if (walkStatus === 'started') {
       const moveTimer = setInterval(() => {
-        setWalkerPosition((prev) => Math.min(100, prev + 0.5));
-        setDistance((prev) => prev + 0.01);
-      }, 100);
+        setWalkerPosition((prev) => Math.min(100, prev + 0.35));
+        setDistance((prev) => prev + 0.012);
+        setCurrentSpeed(3.8 + Math.sin(Date.now() / 4000) * 0.6);
+      }, 1000);
       return () => clearInterval(moveTimer);
     }
-  }, [walkStatus]);
+  }, [walkStatus, reservation]);
 
   useEffect(() => {
     // Simulate photo updates
@@ -112,37 +224,6 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const walkerPath = [
-    { x: 20, y: 80 },
-    { x: 25, y: 72 },
-    { x: 32, y: 68 },
-    { x: 38, y: 62 },
-    { x: 45, y: 58 },
-    { x: 52, y: 52 },
-    { x: 58, y: 46 },
-    { x: 65, y: 40 },
-    { x: 70, y: 34 },
-    { x: 75, y: 28 },
-    { x: 80, y: 20 },
-  ];
-
-  const getCurrentPosition = () => {
-    const progress = walkerPosition / 100;
-    const index = Math.floor(progress * (walkerPath.length - 1));
-    const nextIndex = Math.min(index + 1, walkerPath.length - 1);
-    const segmentProgress = (progress * (walkerPath.length - 1)) - index;
-
-    const current = walkerPath[index];
-    const next = walkerPath[nextIndex];
-
-    return {
-      x: current.x + (next.x - current.x) * segmentProgress,
-      y: current.y + (next.y - current.y) * segmentProgress,
-    };
-  };
-
-  const position = getCurrentPosition();
 
   const milestones = [
     { time: 5, text: 'Primera parada en el parque 🌳', reached: elapsedTime >= 5 },
@@ -198,388 +279,157 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
 
       {/* Map Area */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: isMapLoaded ? 1 : 0, scale: isMapLoaded ? 1 : 0.95 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="flex-1 bg-gradient-to-br from-secondary/20 via-primary/20 to-accent/20 relative overflow-hidden"
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: isMapLoaded ? 1 : 0, scale: isMapLoaded ? 1 : 0.98 }}
+        transition={{ duration: 0.45, delay: 0.15 }}
+        className="relative min-h-[240px] flex-1 overflow-hidden"
       >
-        {/* Grid Pattern Background */}
-        <div className="absolute inset-0 opacity-20">
-          <svg width="100%" height="100%">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+        <TrackingMapCanvas
+          progressPercent={displayProgress}
+          walkerAvatar={walker.avatar}
+        />
 
-        {/* Simulated Map with Route */}
-        <svg className="absolute inset-0 w-full h-full">
-          {/* Completed Path (gray) */}
-          <motion.path
-            d={`M ${walkerPath.map((p) => `${p.x}% ${p.y}%`).join(' L ')}`}
-            stroke="#D1D5DB"
-            strokeWidth="6"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.3"
-          />
-
-          {/* Active Route Path */}
-          <motion.path
-            d={`M ${walkerPath.map((p) => `${p.x}% ${p.y}%`).join(' L ')}`}
-            stroke="url(#routeGradient)"
-            strokeWidth="6"
-            strokeLinecap="round"
-            fill="none"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: walkerPosition / 100 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          />
-
-          {/* Animated Dashes on Route */}
-          <motion.path
-            d={`M ${walkerPath.map((p) => `${p.x}% ${p.y}%`).join(' L ')}`}
-            stroke="#FFFFFF"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeDasharray="8,12"
-            fill="none"
-            initial={{ pathLength: 0 }}
-            animate={{
-              pathLength: walkerPosition / 100,
-              strokeDashoffset: [0, -20]
-            }}
-            transition={{
-              pathLength: { duration: 0.5, ease: 'easeOut' },
-              strokeDashoffset: { duration: 2, repeat: Infinity, ease: 'linear' }
-            }}
-          />
-
-          <defs>
-            <linearGradient id="routeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#FF6B35" />
-              <stop offset="50%" stopColor="#F7C548" />
-              <stop offset="100%" stopColor="#E59500" />
-            </linearGradient>
-          </defs>
-
-          {/* Start Point */}
-          <g>
-            <motion.circle
-              cx="20%"
-              cy="80%"
-              r="20"
-              fill="#FF6B35"
-              opacity="0.2"
-              animate={{ r: [20, 25, 20] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-            <circle cx="20%" cy="80%" r="16" fill="#FF6B35" />
-            <text x="20%" y="80%" textAnchor="middle" dy=".4em" className="text-xl">
-              🏠
-            </text>
-          </g>
-
-          {/* Checkpoints along route */}
-          {walkerPath.slice(2, -2).map((point, i) => (
-            <g key={i}>
-              <circle
-                cx={`${point.x}%`}
-                cy={`${point.y}%`}
-                r="4"
-                fill={walkerPosition / 100 > (i + 2) / (walkerPath.length - 1) ? '#10B981' : '#D1D5DB'}
-                className="transition-all duration-500"
-              />
-            </g>
-          ))}
-
-          {/* End Point */}
-          <g>
-            <motion.circle
-              cx="80%"
-              cy="20%"
-              r="20"
-              fill="#E59500"
-              opacity="0.2"
-              animate={{ r: [20, 25, 20] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-            />
-            <circle cx="80%" cy="20%" r="16" fill="#E59500" />
-            <text x="80%" y="20%" textAnchor="middle" dy=".4em" className="text-xl">
-              🎯
-            </text>
-          </g>
-        </svg>
-
-        {/* Walker Position with animated trail */}
-        <motion.div
-          className="absolute"
-          style={{
-            left: `${position.x}%`,
-            top: `${position.y}%`,
-            transform: 'translate(-50%, -50%)',
-          }}
-          transition={{ duration: 0.3, ease: 'linear' }}
-        >
-          {/* Pulse rings */}
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="absolute inset-0 rounded-full border-2 border-primary"
-              style={{
-                width: '80px',
-                height: '80px',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-              }}
-              animate={{
-                scale: [1, 2, 2],
-                opacity: [0.8, 0.2, 0],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                delay: i * 0.6,
-                ease: 'easeOut',
-              }}
-            />
-          ))}
-
-          {/* Walker avatar */}
-          <motion.div
-            className="relative w-20 h-20 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center shadow-2xl border-4 border-white z-10"
-            animate={{
-              scale: walkStatus === 'break' ? [1, 1.05, 1] : 1,
-            }}
-            transition={{
-              duration: 1.5,
-              repeat: walkStatus === 'break' ? Infinity : 0,
-            }}
-          >
-            <span className="text-4xl">{walker.avatar}</span>
-
-            {/* Direction indicator */}
-            {walkStatus === 'started' && (
+        {/* Top overlay: status + back (above map, never covered by route) */}
+        <div className="absolute inset-x-0 top-0 z-30 flex items-start gap-3 p-4 pointer-events-none">
+          <div className="flex-1 min-w-0 pointer-events-auto">
+            <AnimatePresence mode="wait">
               <motion.div
-                className="absolute -top-2 -right-2 w-8 h-8 bg-success rounded-full flex items-center justify-center border-2 border-white shadow-lg"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                key={walkStatus}
+                initial={{ y: -12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -12, opacity: 0 }}
               >
-                <Navigation className="w-4 h-4 text-white" fill="white" />
-              </motion.div>
-            )}
+                <Card className="shadow-xl border border-border/80 backdrop-blur-md bg-card/95">
+                  <div className="flex items-center gap-3">
+                    <div className="relative shrink-0">
+                      <div
+                        className={`w-11 h-11 rounded-full flex items-center justify-center ${
+                          walkStatus === 'on-way'
+                            ? 'bg-secondary/20'
+                            : walkStatus === 'break'
+                            ? 'bg-accent/20'
+                            : 'bg-success/20'
+                        }`}
+                      >
+                        {walkStatus === 'on-way' && <Clock className="w-5 h-5 text-secondary" />}
+                        {walkStatus === 'started' && <Play className="w-5 h-5 text-success" />}
+                        {walkStatus === 'break' && <Pause className="w-5 h-5 text-accent" />}
+                      </div>
+                    </div>
 
-            {/* Speed indicator */}
-            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-white px-2 py-0.5 rounded-full shadow-md">
-              <span className="text-xs font-bold text-primary">{currentSpeed.toFixed(1)} km/h</span>
-            </div>
-          </motion.div>
-        </motion.div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm flex items-center gap-2 truncate">
+                        {walkStatus === 'on-way' && t('tracking.walker.on.way')}
+                        {walkStatus === 'started' && t('tracking.walk.started')}
+                        {walkStatus === 'break' && 'Tiempo de descanso'}
+                      </p>
 
-        {/* Status Banner */}
-        <div className="absolute top-4 left-4 right-16">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={walkStatus}
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-            >
-              <Card className="shadow-2xl border-2 border-white/50 backdrop-blur-md bg-card/95">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <motion.div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        walkStatus === 'on-way'
-                          ? 'bg-secondary/20'
-                          : walkStatus === 'break'
-                          ? 'bg-accent/20'
-                          : 'bg-success/20'
-                      }`}
-                    >
-                      {walkStatus === 'on-way' && <Clock className="w-6 h-6 text-secondary" />}
-                      {walkStatus === 'started' && <Play className="w-6 h-6 text-success" />}
-                      {walkStatus === 'break' && <Pause className="w-6 h-6 text-accent" />}
-                    </motion.div>
-                    <motion.div
-                      className={`absolute inset-0 rounded-full ${
-                        walkStatus === 'on-way'
-                          ? 'bg-secondary'
-                          : walkStatus === 'break'
-                          ? 'bg-accent'
-                          : 'bg-success'
-                      }`}
-                      animate={{ scale: [1, 1.4], opacity: [0.5, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
-                    />
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="font-bold flex items-center gap-2">
                       {walkStatus === 'on-way' && (
-                        <>
-                          {t('tracking.walker.on.way')}
-                          <Badge className="bg-secondary/10 text-secondary text-xs px-2 py-0.5">
-                            Llegando pronto
-                          </Badge>
-                        </>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          ETA: {eta} min · {distance.toFixed(1)} km
+                        </p>
                       )}
-                      {walkStatus === 'started' && (
-                        <>
-                          {t('tracking.walk.started')}
-                          <Badge className="bg-success/10 text-success text-xs px-2 py-0.5">
-                            En curso
-                          </Badge>
-                        </>
-                      )}
-                      {walkStatus === 'break' && (
-                        <>
-                          Tiempo de descanso
-                          <Badge className="bg-accent/10 text-accent text-xs px-2 py-0.5">
-                            Pausa
-                          </Badge>
-                        </>
-                      )}
-                    </p>
 
-                    {walkStatus === 'on-way' && (
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          <motion.span
-                            key={eta}
-                            initial={{ scale: 1.2, color: '#FF6B35' }}
-                            animate={{ scale: 1, color: 'currentColor' }}
-                          >
-                            ETA: {eta} min
-                          </motion.span>
-                        </div>
-                        <div className="w-1 h-1 bg-border rounded-full" />
-                        <span>{distance.toFixed(1)} km recorridos</span>
-                      </div>
-                    )}
-
-                    {(walkStatus === 'started' || walkStatus === 'break') && (
-                      <div className="flex items-center gap-3 text-sm mt-1">
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex items-center gap-1 text-primary font-semibold">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{formatTime(elapsedTime)}</span>
-                          </div>
-                          <div className="w-1 h-1 bg-border rounded-full" />
-                          <span className="text-muted-foreground">{distance.toFixed(2)} km</span>
-                          <div className="w-1 h-1 bg-border rounded-full" />
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>{photos}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                      {(walkStatus === 'started' || walkStatus === 'break') && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {reservation?.petName && `${reservation.petName} · `}
+                          {formatTime(elapsedTime)} · {distance.toFixed(2)} km
+                          {photos > 0 && ` · ${photos} fotos`}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </motion.div>
-          </AnimatePresence>
+                </Card>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <IconButton
+            onClick={onBack}
+            variant="default"
+            aria-label="Volver a reservas"
+            className="pointer-events-auto shrink-0 shadow-lg bg-card/95 backdrop-blur-md border border-border/80"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </IconButton>
         </div>
 
         {/* Floating Notifications */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
-              initial={{ y: -100, opacity: 0 }}
+              initial={{ y: -80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -100, opacity: 0 }}
-              className="absolute top-24 left-4 right-4"
+              exit={{ y: -80, opacity: 0 }}
+              className="absolute top-[5.5rem] left-4 right-4 z-40"
             >
               <Card className="shadow-2xl bg-gradient-to-r from-primary to-accent text-white border-0">
                 <div className="flex items-center gap-3">
-                  <motion.div
-                    animate={{ rotate: [0, 10, -10, 0] }}
-                    transition={{ duration: 0.5, repeat: 2 }}
-                    className="text-2xl"
-                  >
-                    📸
-                  </motion.div>
-                  <p className="font-semibold flex-1">{notificationText}</p>
-                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="text-xl">📸</span>
+                  <p className="font-semibold flex-1 text-sm">{notificationText}</p>
+                  <CheckCircle2 className="w-5 h-5 shrink-0" />
                 </div>
               </Card>
             </motion.div>
           )}
         </AnimatePresence>
+      </motion.div>
 
-        {/* Live Stats Mini Cards */}
-        <div className="absolute top-44 left-4 right-4 flex gap-2">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className="flex-1"
-          >
-            <Card padding="sm" className="bg-card/90 backdrop-blur-md border border-white/50 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <Activity className="w-4 h-4 text-primary" />
-                <span className="text-xs font-medium text-muted-foreground">Ritmo</span>
-              </div>
-              <p className="text-lg font-bold">{currentSpeed.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">km/h</p>
-            </Card>
-          </motion.div>
+      {/* Live stats — dedicated row, no map overlap */}
+      <div className="shrink-0 px-4 py-3 bg-background border-y border-border/60 z-20">
+        <div className="grid grid-cols-3 gap-2">
+          <Card padding="sm" className="text-center bg-card shadow-sm">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Activity className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-medium text-muted-foreground">Ritmo</span>
+            </div>
+            <p className="text-base font-bold">{currentSpeed.toFixed(1)}</p>
+            <p className="text-[10px] text-muted-foreground">km/h</p>
+          </Card>
 
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.4 }}
-            className="flex-1"
-          >
-            <Card padding="sm" className="bg-card/90 backdrop-blur-md border border-white/50 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <Heart className="w-4 h-4 text-destructive" />
-                <span className="text-xs font-medium text-muted-foreground">FC Mascota</span>
-              </div>
-              <p className="text-lg font-bold">{Math.round(heartRate)}</p>
-              <p className="text-xs text-muted-foreground">bpm</p>
-            </Card>
-          </motion.div>
+          <Card padding="sm" className="text-center bg-card shadow-sm">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Heart className="w-3.5 h-3.5 text-destructive" />
+              <span className="text-[11px] font-medium text-muted-foreground">FC Mascota</span>
+            </div>
+            <p className="text-base font-bold">{Math.round(heartRate)}</p>
+            <p className="text-[10px] text-muted-foreground">bpm</p>
+          </Card>
 
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.5 }}
-            className="flex-1"
-          >
-            <Card padding="sm" className="bg-card/90 backdrop-blur-md border border-white/50 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <TrendingUp className="w-4 h-4 text-success" />
-                <span className="text-xs font-medium text-muted-foreground">Calorías</span>
-              </div>
-              <p className="text-lg font-bold">{Math.round(distance * 45)}</p>
-              <p className="text-xs text-muted-foreground">kcal</p>
-            </Card>
-          </motion.div>
+          <Card padding="sm" className="text-center bg-card shadow-sm">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <TrendingUp className="w-3.5 h-3.5 text-success" />
+              <span className="text-[11px] font-medium text-muted-foreground">Calorías</span>
+            </div>
+            <p className="text-base font-bold">{Math.round(distance * 45)}</p>
+            <p className="text-[10px] text-muted-foreground">kcal</p>
+          </Card>
         </div>
 
-        {/* Back Button */}
-        <IconButton
-          onClick={onBack}
-          variant="default"
-          className="absolute top-4 right-4 shadow-lg bg-white/90 backdrop-blur-md border border-white/50"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </IconButton>
-      </motion.div>
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="font-semibold text-muted-foreground">Progreso del paseo</span>
+            <span className="font-bold text-primary">{Math.round(displayProgress)}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-primary via-secondary to-success rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${displayProgress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+            <span>Tiempo: {formatTime(elapsedTime)}</span>
+            <span>{distance.toFixed(2)} km</span>
+          </div>
+        </div>
+      </div>
 
       {/* Bottom Panel */}
       <motion.div
         initial={{ y: 300 }}
         animate={{ y: 0 }}
         transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-        className="bg-background border-t-2 border-border/50 pb-safe"
+        className="shrink-0 bg-background border-t border-border/50 pb-safe max-h-[42vh] overflow-y-auto"
       >
         {/* Walker Info Card */}
         <div className="p-4 pb-4">
@@ -588,9 +438,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
               <div className="relative">
                 <Avatar emoji={walker.avatar} size="xl" />
                 <motion.div
-                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-success rounded-full flex items-center justify-center border-2 border-white"
-                  animate={{ scale: [1, 1.1] }}
-                  transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-success rounded-full flex items-center justify-center border-2 border-white home-map-pin-live"
                 >
                   <div className="w-2 h-2 bg-white rounded-full" />
                 </motion.div>

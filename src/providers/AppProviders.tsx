@@ -3,6 +3,7 @@ import { ThemeProvider } from 'next-themes';
 import { LanguageProvider } from '@/app/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { UserDataProvider } from '@/contexts/UserDataContext';
+import { ReservationsProvider } from '@/contexts/ReservationsContext';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -17,7 +18,9 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <LanguageProvider>
         <AuthProvider>
-          <UserDataProvider>{children}</UserDataProvider>
+          <UserDataProvider>
+            <ReservationsProvider>{children}</ReservationsProvider>
+          </UserDataProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

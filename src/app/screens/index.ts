@@ -15,5 +15,7 @@ export { BookingScreen } from './BookingScreen';
 export { CheckoutScreen } from './CheckoutScreen';
 export { BookingConfirmedScreen } from './BookingConfirmedScreen';
 export { LiveTrackingScreen } from './LiveTrackingScreen';
+export { CompletedWalkDetailScreen } from './CompletedWalkDetailScreen';
 export { NotificationsScreen } from './NotificationsScreen';
 export { ProfileScreen } from './ProfileScreen';
+export { ReservationsScreen } from './ReservationsScreen';

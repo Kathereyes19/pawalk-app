@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserData } from '@/contexts/UserDataContext';
+import { useReservations } from '@/contexts/ReservationsContext';
 import { markOnboardingComplete, upsertProfile } from '@/features/profile';
 import { replacePetsForUser } from '@/features/pets';
+import { reservationToWalker, resolveEffectiveStatus } from '@/features/reservations';
 import {
   AUTH_ENTRY_SCREEN,
   loadUserBundle,
@@ -17,7 +19,7 @@ import {
   type AppScreen,
   type BottomNavTab,
 } from '@/navigation';
-import type { BookingData, Pet, UserProfile, Walker } from '@/types';
+import type { BookingData, Pet, Reservation, UserProfile, Walker } from '@/types';
 
 export function useAppNavigation() {
   const { session, isLoading: authLoading, signOut } = useAuth();
@@ -32,11 +34,14 @@ export function useAppNavigation() {
     setOnboardingCompleted,
     refreshUserData,
   } = useUserData();
+  const { bookReservation, completeReservationWalk } = useReservations();
 
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(INITIAL_SCREEN);
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
   const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
+  const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
+  const [walkDetailReservation, setWalkDetailReservation] = useState<Reservation | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
   const hasBootstrapped = useRef(false);
@@ -196,6 +201,9 @@ export function useAppNavigation() {
     setPets([]);
     setOnboardingCompleted(false);
     setActiveTab('home');
+    setActiveReservation(null);
+    setBookingData(null);
+    setSelectedWalker(null);
     hasBootstrapped.current = true;
     setCurrentScreen(AUTH_ENTRY_SCREEN);
   }, [signOut, setProfile, setPets, setOnboardingCompleted]);
@@ -214,17 +222,71 @@ export function useAppNavigation() {
     setCurrentScreen('checkout');
   }, []);
 
-  const handleCheckoutConfirm = useCallback(() => {
+  const handleCheckoutConfirm = useCallback(async () => {
+    setIsNavigating(true);
+
+    if (selectedWalker && bookingData && resolvedUserId) {
+      await bookReservation({
+        walker: selectedWalker,
+        bookingData,
+        pets: bookingData.pets,
+        petId: bookingData.pets?.[0]?.id ?? null,
+        petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
+        paymentMethod: 'card',
+      });
+    }
+
+    setIsNavigating(false);
     setCurrentScreen('confirmed');
+  }, [selectedWalker, bookingData, resolvedUserId, bookReservation]);
+
+  const handleViewWalkDetail = useCallback((reservation: Reservation) => {
+    setWalkDetailReservation(reservation);
+    setCurrentScreen('walk-detail');
   }, []);
 
-  const handleViewTracking = useCallback(() => {
-    setCurrentScreen('tracking');
+  const handleBackFromWalkDetail = useCallback(() => {
+    setWalkDetailReservation(null);
+    setCurrentScreen(POST_AUTH_HOME);
+    setActiveTab('bookings');
+  }, []);
+
+  const handleViewReservations = useCallback(() => {
+    setActiveTab('bookings');
+    setCurrentScreen(POST_AUTH_HOME);
+  }, []);
+
+  const handleViewTracking = useCallback(
+    (reservation: Reservation) => {
+      const effective = resolveEffectiveStatus(reservation);
+      if (effective !== 'active') return;
+
+      setSelectedWalker(reservationToWalker(reservation));
+      setActiveReservation(reservation);
+      setCurrentScreen('tracking');
+    },
+    []
+  );
+
+  const handleWalkComplete = useCallback(
+    async (reservationId: string, summary?: { distanceKm?: number; durationMinutes?: number }) => {
+      await completeReservationWalk(reservationId, summary);
+      setActiveReservation(null);
+      setActiveTab('bookings');
+      setCurrentScreen(POST_AUTH_HOME);
+    },
+    [completeReservationWalk]
+  );
+
+  const handleBackFromTracking = useCallback(() => {
+    setCurrentScreen(POST_AUTH_HOME);
+    setActiveTab('bookings');
   }, []);
 
   const handleBackHome = useCallback(() => {
     setCurrentScreen(POST_AUTH_HOME);
     setActiveTab('home');
+    setActiveReservation(null);
   }, []);
 
   const handleTabChange = useCallback(
@@ -267,6 +329,8 @@ export function useAppNavigation() {
     activeTab,
     selectedWalker,
     bookingData,
+    activeReservation,
+    walkDetailReservation,
     profileData,
     userPets,
     isAppReady,
@@ -287,7 +351,12 @@ export function useAppNavigation() {
       handleBookWalk,
       handleBookingContinue,
       handleCheckoutConfirm,
+      handleViewReservations,
       handleViewTracking,
+      handleViewWalkDetail,
+      handleBackFromWalkDetail,
+      handleWalkComplete,
+      handleBackFromTracking,
       handleBackHome,
       handleTabChange,
       goToScreen,

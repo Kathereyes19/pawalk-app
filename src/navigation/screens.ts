@@ -17,6 +17,7 @@ export type AppScreen =
   | 'checkout'
   | 'confirmed'
   | 'tracking'
+  | 'walk-detail'
   | 'notifications';
 
 export type BottomNavTab = 'home' | 'bookings' | 'pets' | 'profile';
@@ -36,6 +37,7 @@ export const ROUTE_PATHS = {
   checkout: '/checkout',
   confirmed: '/booking/confirmed',
   tracking: '/tracking/:bookingId',
+  walkDetail: '/walks/:bookingId',
   notifications: '/notifications',
   bookingsTab: '/bookings',
   petsTab: '/pets',
@@ -58,6 +60,7 @@ export const BOOKING_FLOW_SCREENS: AppScreen[] = [
   'checkout',
   'confirmed',
   'tracking',
+  'walk-detail',
 ];
 
 export const ONBOARDING_SCREENS: AppScreen[] = [

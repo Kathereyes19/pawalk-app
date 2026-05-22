@@ -5,6 +5,7 @@ import {
   BookingConfirmedScreen,
   BookingScreen,
   CheckoutScreen,
+  CompletedWalkDetailScreen,
   HomeScreen,
   LiveTrackingScreen,
   LoginScreen,
@@ -13,6 +14,7 @@ import {
   PersonalProfileSetupScreen,
   PetProfileScreen,
   ProfileScreen,
+  ReservationsScreen,
   SignUpScreen,
   WalkerProfileScreen,
   WelcomeScreen,
@@ -103,6 +105,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return (
           <BookingScreen
             walker={selectedWalker}
+            pets={navigation.userPets}
             onBack={() => handlers.goToScreen('walker-profile')}
             onContinue={handlers.handleBookingContinue}
           />
@@ -123,14 +126,29 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
           <BookingConfirmedScreen
             walker={selectedWalker}
             bookingData={bookingData}
-            onViewTracking={handlers.handleViewTracking}
+            onViewReservations={handlers.handleViewReservations}
             onBackHome={handlers.handleBackHome}
           />
         );
 
       case 'tracking':
         return (
-          <LiveTrackingScreen walker={selectedWalker} onBack={handlers.handleBackHome} />
+          <LiveTrackingScreen
+            walker={selectedWalker}
+            reservation={navigation.activeReservation}
+            onBack={handlers.handleBackFromTracking}
+            onWalkComplete={handlers.handleWalkComplete}
+          />
+        );
+
+      case 'walk-detail':
+        return navigation.walkDetailReservation ? (
+          <CompletedWalkDetailScreen
+            reservation={navigation.walkDetailReservation}
+            onBack={handlers.handleBackFromWalkDetail}
+          />
+        ) : (
+          <HomeScreen onWalkerClick={handlers.handleWalkerClick} />
         );
 
       default:
@@ -145,17 +163,10 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
 
       case 'bookings':
         return (
-          <div className="h-full flex items-center justify-center p-8 text-center overflow-hidden">
-            <div className="pb-20">
-              <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-5xl">📅</span>
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Mis Reservas</h2>
-              <p className="text-muted-foreground">
-                Tus paseos programados aparecerán aquí
-              </p>
-            </div>
-          </div>
+          <ReservationsScreen
+            onViewTracking={handlers.handleViewTracking}
+            onViewWalkDetail={handlers.handleViewWalkDetail}
+          />
         );
 
       case 'pets':
