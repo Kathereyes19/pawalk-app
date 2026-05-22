@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Calendar, PawPrint, User } from 'lucide-react';
+import { Home, Calendar, PawPrint, User, Store } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { cn } from '../utils/cn';
@@ -16,6 +16,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
   const tabs = [
     { id: 'home' as const, icon: Home, label: t('nav.home') },
     { id: 'bookings' as const, icon: Calendar, label: t('nav.bookings') },
+    { id: 'marketplace' as const, icon: Store, label: t('nav.marketplace') },
     { id: 'pets' as const, icon: PawPrint, label: t('nav.pets') },
     { id: 'profile' as const, icon: User, label: t('nav.profile') },
   ];
@@ -31,7 +32,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className="flex flex-col items-center gap-1 py-2 px-3 min-w-[64px] relative touch-manipulation"
+              className="flex flex-col items-center gap-0.5 py-2 px-2 min-w-[56px] relative touch-manipulation"
             >
               {isActive && (
                 <motion.div
@@ -54,7 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               </motion.div>
               <span
                 className={cn(
-                  'text-xs font-medium relative z-10 transition-colors duration-200',
+                  'text-[10px] font-medium relative z-10 transition-colors duration-200 leading-tight text-center',
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
               >

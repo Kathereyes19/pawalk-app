@@ -62,6 +62,22 @@ export type {
   UpdateReminderInput,
 } from './reminder';
 
+export type {
+  MarketplaceCategory,
+  MarketplaceView,
+  MarketplaceOrderStatus,
+  MarketplaceProduct,
+  MarketplaceProductRow,
+  CartLineItem,
+  CartProduct,
+  MarketplaceOrderItem,
+  MarketplaceOrder,
+  MarketplaceOrderRow,
+  MarketplaceFilters,
+  CreateMarketplaceOrderInput,
+} from './marketplace';
+export { DEFAULT_MARKETPLACE_FILTERS } from './marketplace';
+
 /** @deprecated import from homeDiscovery */
 export type { WalkerFilterState } from './homeDiscovery';
 export { DEFAULT_WALKER_FILTERS } from './homeDiscovery';

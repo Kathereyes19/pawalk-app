@@ -41,6 +41,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Navigation
     'nav.home': 'Inicio',
     'nav.bookings': 'Reservas',
+    'nav.marketplace': 'Tienda',
     'nav.pets': 'Mascotas',
     'nav.profile': 'Perfil',
 
@@ -202,6 +203,32 @@ const translations: Record<Language, Record<string, string>> = {
     'notif.payment.confirmed': 'Pago confirmado',
     'notif.vaccination.reminder': 'Recordatorio de vacunación',
 
+    // Marketplace
+    'marketplace.title': 'Marketplace',
+    'marketplace.subtitle': 'Productos y servicios para tu mascota',
+    'marketplace.searchPlaceholder': 'Buscar productos...',
+    'marketplace.empty.title': 'Sin resultados',
+    'marketplace.empty.desc': 'Prueba otros filtros o términos de búsqueda.',
+    'marketplace.filters.reset': 'Limpiar filtros',
+    'marketplace.inStock': 'Disponible',
+    'marketplace.outOfStock': 'Agotado',
+    'marketplace.description': 'Descripción',
+    'marketplace.quantity': 'Cantidad',
+    'marketplace.addToCart': 'Agregar al carrito',
+    'marketplace.subtotal': 'Subtotal',
+    'marketplace.cart.title': 'Carrito',
+    'marketplace.cart.empty': 'Tu carrito está vacío',
+    'marketplace.checkout.cta': 'Ir al checkout',
+    'marketplace.checkout.title': 'Checkout',
+    'marketplace.checkout.summary': 'Resumen del pedido',
+    'marketplace.checkout.address': 'Dirección de entrega',
+    'marketplace.checkout.addressLabel': 'Dirección completa',
+    'marketplace.checkout.payment': 'Método de pago',
+    'marketplace.checkout.confirm': 'Confirmar compra',
+    'marketplace.confirmed.title': '¡Compra confirmada!',
+    'marketplace.confirmed.desc': 'Tu pedido fue procesado correctamente. Te avisaremos cuando esté en camino.',
+    'marketplace.confirmed.cta': 'Seguir comprando',
+
     // Reminders
     'reminders.title': 'Recordatorios',
     'reminders.subtitle': 'No olvides el cuidado de tus mascotas',
@@ -304,6 +331,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Navigation
     'nav.home': 'Home',
     'nav.bookings': 'Bookings',
+    'nav.marketplace': 'Shop',
     'nav.pets': 'Pets',
     'nav.profile': 'Profile',
 
@@ -464,6 +492,32 @@ const translations: Record<Language, Record<string, string>> = {
     'notif.walk.completed': 'Walk completed',
     'notif.payment.confirmed': 'Payment confirmed',
     'notif.vaccination.reminder': 'Vaccination reminder',
+
+    // Marketplace
+    'marketplace.title': 'Marketplace',
+    'marketplace.subtitle': 'Pet products and services',
+    'marketplace.searchPlaceholder': 'Search products...',
+    'marketplace.empty.title': 'No results',
+    'marketplace.empty.desc': 'Try different filters or search terms.',
+    'marketplace.filters.reset': 'Clear filters',
+    'marketplace.inStock': 'In stock',
+    'marketplace.outOfStock': 'Out of stock',
+    'marketplace.description': 'Description',
+    'marketplace.quantity': 'Quantity',
+    'marketplace.addToCart': 'Add to cart',
+    'marketplace.subtotal': 'Subtotal',
+    'marketplace.cart.title': 'Cart',
+    'marketplace.cart.empty': 'Your cart is empty',
+    'marketplace.checkout.cta': 'Proceed to checkout',
+    'marketplace.checkout.title': 'Checkout',
+    'marketplace.checkout.summary': 'Order summary',
+    'marketplace.checkout.address': 'Delivery address',
+    'marketplace.checkout.addressLabel': 'Full address',
+    'marketplace.checkout.payment': 'Payment method',
+    'marketplace.checkout.confirm': 'Confirm purchase',
+    'marketplace.confirmed.title': 'Purchase confirmed!',
+    'marketplace.confirmed.desc': 'Your order was processed successfully. We will notify you when it is on the way.',
+    'marketplace.confirmed.cta': 'Continue shopping',
 
     // Reminders
     'reminders.title': 'Reminders',
