@@ -1,7 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { clearMockUserId } from '@/lib/mockUser';
-import { fetchProfile } from '@/features/profile';
 import type { AuthResult, SignInCredentials, SignUpCredentials } from '@/types';
 
 function mapAuthError(message: string): AuthResult['error'] {
@@ -82,41 +81,4 @@ export async function signOut(): Promise<void> {
   if (supabase) {
     await supabase.auth.signOut();
   }
-}
-
-export async function signInWithOAuth(
-  provider: 'google' | 'apple'
-): Promise<AuthResult<{ redirecting: boolean }>> {
-  if (!isSupabaseConfigured()) {
-    return { data: { redirecting: false }, error: null, mode: 'mock' };
-  }
-
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return { data: { redirecting: false }, error: null, mode: 'mock' };
-  }
-
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: `${window.location.origin}${window.location.pathname}`,
-      queryParams:
-        provider === 'apple'
-          ? { scope: 'email name' }
-          : { access_type: 'offline', prompt: 'consent' },
-    },
-  });
-
-  if (error) {
-    return { data: null, error: mapAuthError(error.message), mode: 'supabase' };
-  }
-
-  return { data: { redirecting: true }, error: null, mode: 'supabase' };
-}
-
-/** True when the user has no completed onboarding profile in Supabase. */
-export async function isOAuthNewUser(userId: string): Promise<boolean> {
-  const { profile, onboardingCompleted } = await fetchProfile(userId);
-  if (onboardingCompleted) return false;
-  return !profile?.fullName?.trim();
 }

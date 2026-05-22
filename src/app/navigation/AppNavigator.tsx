@@ -53,7 +53,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
           <LoginScreen
             onLogin={handlers.handleLogin}
             onSignUp={() => handlers.goToScreen('signup')}
-            onOAuthSuccess={handlers.handleOAuthSuccess}
           />
         );
 
@@ -63,7 +62,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
             onBack={() => handlers.goToScreen('login')}
             onSignUp={handlers.handleSignUp}
             onLogin={() => handlers.goToScreen('login')}
-            onOAuthSuccess={handlers.handleOAuthSuccess}
           />
         );
 

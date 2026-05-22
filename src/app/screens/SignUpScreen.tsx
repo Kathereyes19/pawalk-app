@@ -5,25 +5,17 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { IconButton } from '../components/IconButton';
-import { Divider } from '../components/Divider';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 import { signUpWithEmail, validateSignUp } from '@/features/auth';
 import { setMockUserId } from '@/lib/mockUser';
-import { SocialAuthButtons } from '../components/SocialAuthButtons';
 
 interface SignUpScreenProps {
   onBack: () => void;
   onSignUp: () => void;
   onLogin: () => void;
-  onOAuthSuccess?: (isNewUser: boolean) => void;
 }
 
-export const SignUpScreen: React.FC<SignUpScreenProps> = ({
-  onBack,
-  onSignUp,
-  onLogin,
-  onOAuthSuccess,
-}) => {
+export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, onLogin }) => {
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -352,21 +344,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
             size="xl"
             loading={isLoading}
             disabled={!name || !email || !password || !acceptTerms}
+            className="mt-1"
           >
             {t('signup')}
           </Button>
 
-          {/* Divider */}
-          <Divider text="o" />
-
-          {/* Social Sign Up */}
-          <SocialAuthButtons
-            mockEmail={email}
-            onOAuthSuccess={() => onOAuthSuccess?.(true)}
-          />
-
           {/* Login Link */}
-          <div className="text-center pt-4">
+          <div className="text-center pt-8 mt-2 border-t border-border">
             <p className="text-sm text-muted-foreground">
               ¿Ya tienes cuenta?{' '}
               <button

@@ -1,6 +1,6 @@
 const PENDING_ONBOARDING_KEY = 'pawalk_pending_onboarding';
 
-/** Set after email/OAuth registration — shows intro slides once before profile setup. */
+/** Set after email registration — shows intro slides once before profile setup. */
 export function setPendingOnboarding(value: boolean): void {
   if (value) {
     sessionStorage.setItem(PENDING_ONBOARDING_KEY, '1');

@@ -9,7 +9,6 @@ import {
   requiresAuth,
   resolveAuthenticatedScreen,
 } from '@/features/user';
-import { isOAuthNewUser } from '@/features/auth';
 import { clearPendingOnboarding, setPendingOnboarding } from '@/lib/onboardingSession';
 import { resolveUserId } from '@/lib/mockUser';
 import {
@@ -80,7 +79,7 @@ export function useAppNavigation() {
     }
   }, [isAppReady, isAuthenticated, currentScreen]);
 
-  /** OAuth redirect / session restore: send completed users to home */
+  /** Session restore: send completed users to home */
   useEffect(() => {
     if (!isAppReady || !resolvedUserId || userDataLoading) return;
     if (onboardingCompleted && ['login', 'signup'].includes(currentScreen)) {
@@ -150,43 +149,6 @@ export function useAppNavigation() {
     setOnboardingCompleted(false);
     setCurrentScreen('welcome');
   }, [setOnboardingCompleted]);
-
-  const handleOAuthSuccess = useCallback(
-    async (isNewUser: boolean) => {
-      const uid = resolvedUserId ?? resolveUserId(session?.user?.id ?? null);
-      if (!uid) return;
-
-      setIsNavigating(true);
-      await refreshUserData();
-      const bundle = await loadUserBundle(uid);
-
-      if (isNewUser || !bundle.onboardingCompleted) {
-        if (!bundle.profile?.fullName?.trim()) {
-          setPendingOnboarding(true);
-          setWelcomeMode('intro');
-          setCurrentScreen('welcome');
-        } else {
-          setCurrentScreen(resolveAuthenticatedScreen(bundle));
-        }
-      } else {
-        clearPendingOnboarding();
-        setCurrentScreen(POST_AUTH_HOME);
-      }
-      setIsNavigating(false);
-    },
-    [resolvedUserId, session?.user?.id, refreshUserData]
-  );
-
-  useEffect(() => {
-    if (!isAppReady || !session?.user?.id) return;
-    if (sessionStorage.getItem('pawalk_oauth_return') !== '1') return;
-
-    sessionStorage.removeItem('pawalk_oauth_return');
-    void (async () => {
-      const isNew = await isOAuthNewUser(session.user!.id);
-      await handleOAuthSuccess(isNew);
-    })();
-  }, [isAppReady, session?.user?.id, handleOAuthSuccess]);
 
   const handleProfileSetupComplete = useCallback(
     async (data: UserProfile) => {
@@ -317,7 +279,6 @@ export function useAppNavigation() {
       handleWelcomeLogin,
       handleLogin,
       handleSignUp,
-      handleOAuthSuccess,
       handleProfileSetupComplete,
       handlePetSetupComplete,
       handleOnboardingComplete,
