@@ -35,6 +35,7 @@ import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/Card';
 import { TrackingMapCanvas } from '../components/map/TrackingMapCanvas';
+import { getReservationProviderAvatarProps, getPetAvatarProps } from '@/lib/images';
 import type { Reservation } from '@/types';
 
 interface CompletedWalkDetailScreenProps {
@@ -73,6 +74,11 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
       : category === 'caregivers'
         ? 'Cuidado completado'
         : 'Cita completada';
+
+  const providerAvatar = useMemo(
+    () => getReservationProviderAvatarProps(reservation),
+    [reservation]
+  );
 
   const formatTimestamp = (iso?: string | null) => {
     if (!iso) return '—';
@@ -119,11 +125,17 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
         {isWalk ? (
           <TrackingMapCanvas
             progressPercent={100}
+            walkerImageSrc={providerAvatar.src!}
+            walkerImageAlt={providerAvatar.alt}
             walkerAvatar={reservation.walkerAvatar}
           />
         ) : (
-          <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="absolute top-8 left-8 text-6xl">{reservation.walkerAvatar}</div>
+          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
+            <img
+              src={providerAvatar.src}
+              alt={providerAvatar.alt}
+              className="absolute top-8 left-8 w-24 h-24 rounded-2xl object-cover"
+            />
           </div>
         )}
         <div className={`absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/50 to-transparent px-4 pt-4 pb-8 ${isWalk ? '' : 'relative bg-transparent'}`}>
@@ -265,7 +277,7 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
                     key={pet.id}
                     className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40"
                   >
-                    <Avatar emoji={pet.avatar ?? '🐾'} size="md" className="rounded-lg" />
+                    <Avatar {...getPetAvatarProps({ avatar: pet.avatar, name: pet.name, id: pet.id })} size="md" className="rounded-lg" />
                     <span className="font-medium">{pet.name}</span>
                   </div>
                 ))}
@@ -286,7 +298,7 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
               {category === 'veterinary' ? 'Centro' : category === 'caregivers' ? 'Cuidador' : 'Paseador'}
             </h2>
             <div className="flex items-center gap-3">
-              <Avatar emoji={reservation.walkerAvatar} size="xl" className="rounded-xl" />
+              <Avatar {...providerAvatar} size="xl" className="rounded-xl" />
               <div>
                 <p className="font-semibold text-lg">{reservation.walkerName}</p>
                 <p className="text-sm text-muted-foreground">

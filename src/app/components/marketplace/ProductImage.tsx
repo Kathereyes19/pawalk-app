@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/app/utils/cn';
 import { getProductImageUrl } from '@/features/marketplace';
+import { resolveBrandedDefault } from '@/lib/images';
 import type { MarketplaceProduct } from '@/types';
 
 interface ProductImageProps {
@@ -46,9 +47,11 @@ export const ProductImage: React.FC<ProductImageProps> = ({
           )}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-4xl bg-gradient-to-br from-primary/15 to-accent/10">
-          {product.imageEmoji}
-        </div>
+        <img
+          src={resolveBrandedDefault(product.id, product.name).src}
+          alt={alt ?? product.name}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
       )}
     </div>
   );

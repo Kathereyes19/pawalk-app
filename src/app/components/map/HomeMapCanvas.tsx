@@ -1,7 +1,8 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import type { Walker } from '@/types';
 import type { HomeServiceCategory } from '@/types/homeDiscovery';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { getWalkerAvatarProps } from '@/lib/images';
 import { latLngToMapPercent } from '@/lib/walkers/mockWalkers';
 import { MapBaseLayer } from './MapBaseLayer';
 
@@ -54,6 +55,8 @@ function WalkerPin({
   const resolvedCategory = getWalkerHomeCategory(walker);
   const styles = PIN_STYLES[resolvedCategory] ?? PIN_STYLES[category];
   const isClinic = resolvedCategory === 'veterinary' && walker.name.toLowerCase().includes('clínica');
+  const avatar = useMemo(() => getWalkerAvatarProps(walker), [walker]);
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <button
@@ -65,13 +68,22 @@ function WalkerPin({
     >
       <div className="relative">
         <div
-          className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-[3px] border-white transition-all ${
+          className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-[3px] border-white transition-all overflow-hidden ${
             walker.available ? styles.available : styles.unavailable
           } ${isSelected ? 'ring-4 ring-primary/35 scale-110' : ''} ${
             isClinic ? 'rounded-2xl' : 'rounded-full'
           }`}
         >
-          <span className="text-xl leading-none">{isClinic ? '🏥' : walker.avatar}</span>
+          {!imageFailed ? (
+            <img
+              src={avatar.src}
+              alt={avatar.alt}
+              className="w-full h-full object-cover"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <span className="text-xl leading-none">{isClinic ? '🏥' : walker.avatar}</span>
+          )}
         </div>
 
         <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-card border border-border text-[10px] flex items-center justify-center shadow-sm">

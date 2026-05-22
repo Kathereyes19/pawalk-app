@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Star, Verified, X } from 'lucide-react';
 import { Avatar } from '../Avatar';
+import { getReviewAuthorAvatarProps } from '@/lib/images';
 import { Card } from '../Card';
 import { IconButton } from '../IconButton';
 
@@ -108,7 +109,7 @@ export const WalkerReviewsModal: React.FC<WalkerReviewsModalProps> = ({
               {reviews.map((review) => (
                 <Card key={review.id} padding="md">
                   <div className="flex gap-3">
-                    <Avatar emoji={review.avatar} size="md" />
+                    <Avatar {...getReviewAuthorAvatarProps(review.user, review.avatar)} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-2 min-w-0">

@@ -36,6 +36,7 @@ import { ProfileInfoRow } from '../components/profile/ProfileInfoRow';
 import { ProfileSectionCard } from '../components/profile/ProfileSectionCard';
 import { PaymentMethodsSection } from '../components/payments/PaymentMethodsSection';
 import { RemindersSection } from '../components/reminders/RemindersSection';
+import { getUserAvatarProps, getPetAvatarProps } from '@/lib/images';
 import type { UserProfile } from '@/types';
 
 interface ProfileScreenProps {
@@ -121,16 +122,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     document.documentElement.classList.toggle('pawalk-reduce-motion', accessibility.reduceMotion);
   }, [accessibility]);
 
-  const avatarSrc = useMemo(() => {
-    if (!displayProfile) return undefined;
-    return (
-      displayProfile.avatarUrl ??
-      (displayProfile.avatar.startsWith('data:') ? displayProfile.avatar : undefined)
+  const userAvatarProps = useMemo(() => {
+    if (!displayProfile) return { src: undefined, emoji: '👤', alt: 'User' };
+    return getUserAvatarProps(
+      {
+        avatarUrl: displayProfile.avatarUrl,
+        avatar: displayProfile.avatar,
+        fullName: displayProfile.fullName,
+      },
+      userId ?? undefined
     );
-  }, [displayProfile]);
+  }, [displayProfile, userId]);
 
-  const avatarEmoji =
-    displayProfile && displayProfile.avatar.length <= 4 ? displayProfile.avatar : undefined;
+  const draftAvatarProps = useMemo(() => {
+    if (!draft) return { src: undefined, emoji: '👤', alt: 'User' };
+    const hasUpload =
+      draft.avatarUrl ??
+      (draft.avatar.startsWith('data:') ? draft.avatar : undefined);
+    if (hasUpload) {
+      return getUserAvatarProps(
+        { avatarUrl: hasUpload, fullName: draft.fullName },
+        userId ?? undefined
+      );
+    }
+    return getUserAvatarProps(
+      { avatar: draft.avatar, fullName: draft.fullName },
+      userId ?? undefined
+    );
+  }, [draft, userId]);
 
   const startEditing = () => {
     if (!displayProfile) return;
@@ -259,8 +278,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Card padding="lg" variant="elevated">
               <div className="flex flex-col items-center text-center">
                 <Avatar
-                  emoji={avatarEmoji}
-                  src={avatarSrc}
+                  {...userAvatarProps}
                   size="2xl"
                   className="rounded-2xl mb-4"
                 />
@@ -336,7 +354,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   {pets.slice(0, 3).map((pet) => (
                     <ProfileInfoRow
                       key={pet.id}
-                      icon={<span className="text-lg">{pet.avatar || '🐾'}</span>}
+                      icon={
+                        <Avatar
+                          {...getPetAvatarProps({
+                            avatar: pet.avatar,
+                            species: pet.species,
+                            name: pet.name,
+                            id: pet.id,
+                          })}
+                          size="sm"
+                          className="rounded-lg"
+                        />
+                      }
                       label={pet.species === 'cat' ? t('pet.cat') : t('pet.dog')}
                       value={`${pet.name} · ${pet.breed}`}
                       onClick={onNavigateToPets}
@@ -460,11 +489,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <div className="flex flex-col items-center mb-6">
                 <div className="relative">
                   <Avatar
-                    emoji={draft && draft.avatar.length <= 4 ? draft.avatar : undefined}
-                    src={
-                      draft?.avatarUrl ??
-                      (draft?.avatar.startsWith('data:') ? draft.avatar : undefined)
-                    }
+                    {...draftAvatarProps}
                     size="2xl"
                     className="rounded-2xl"
                   />

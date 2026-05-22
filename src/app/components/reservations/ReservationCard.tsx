@@ -19,6 +19,7 @@ import { Avatar } from '../Avatar';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Card } from '../Card';
+import { getReservationProviderAvatarProps } from '@/lib/images';
 import {
   formatCurrency,
   formatDuration,
@@ -99,7 +100,7 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
         }
       >
         <div className="flex items-start gap-3">
-          <Avatar emoji={reservation.walkerAvatar} size="lg" className="rounded-xl" />
+          <Avatar {...getReservationProviderAvatarProps(reservation)} size="lg" className="rounded-xl" />
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="min-w-0">

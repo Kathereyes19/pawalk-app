@@ -1,10 +1,5 @@
 import type { MarketplaceCategory, MarketplaceProduct } from '@/types';
-
-const UNSPLASH = 'https://images.unsplash.com';
-
-export function buildProductImageUrl(photoId: string, width = 600, height = 450): string {
-  return `${UNSPLASH}/${photoId}?auto=format&fit=crop&w=${width}&h=${height}&q=85`;
-}
+import { buildUnsplashUrl, hashString } from '@/lib/images';
 
 /** Curated Unsplash photo IDs mapped to product + category/tag queries */
 const PRODUCT_PHOTOS: Record<string, { main: string; gallery: string[] }> = {
@@ -143,15 +138,6 @@ const TAG_PHOTO_POOL: Record<string, string[]> = {
   juguetes: ['photo-1530281700549-e025e9940186'],
 };
 
-function hashString(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
 function resolvePhotoSet(product: MarketplaceProduct): { main: string; gallery: string[] } {
   const mapped = PRODUCT_PHOTOS[product.id];
   if (mapped) return mapped;
@@ -164,6 +150,10 @@ function resolvePhotoSet(product: MarketplaceProduct): { main: string; gallery: 
   const main = pool[index];
   const gallery = [main, pool[(index + 1) % pool.length], pool[(index + 2) % pool.length]];
   return { main, gallery };
+}
+
+export function buildProductImageUrl(photoId: string, width = 600, height = 450): string {
+  return buildUnsplashUrl(photoId, width, height);
 }
 
 export function getProductImageUrl(

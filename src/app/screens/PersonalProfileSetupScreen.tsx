@@ -20,6 +20,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
+import { getUserAvatarProps, getPetAvatarProps } from '@/lib/images';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 
 interface PersonalProfileSetupScreenProps {
@@ -176,7 +177,14 @@ export const PersonalProfileSetupScreen: React.FC<PersonalProfileSetupScreenProp
               <Card>
                 <label className="block mb-3 font-semibold text-sm">Foto de perfil</label>
                 <div className="flex items-center gap-4 mb-4">
-                  <Avatar emoji={profileData.avatar} size="2xl" className="rounded-2xl" />
+                  <Avatar
+                    {...getUserAvatarProps({
+                      avatar: profileData.avatar,
+                      fullName: profileData.fullName,
+                    })}
+                    size="2xl"
+                    className="rounded-2xl"
+                  />
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground mb-2">
                       Selecciona un avatar o sube tu foto

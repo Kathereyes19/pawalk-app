@@ -37,6 +37,7 @@ import {
   getWalkerWalkStats,
 } from '@/lib/providers/serviceExperience';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { getProviderGalleryUrls, getReviewAuthorAvatarProps } from '@/lib/images';
 import type { CaregiverServiceOffer, Walker } from '@/types';
 
 const CARE_LABELS: Record<CaregiverServiceOffer, string> = {
@@ -244,13 +245,18 @@ export const ProviderProfileSections: React.FC<ProviderProfileSectionsProps> = (
       <div className="px-4 mb-6">
         <h2 className="text-lg font-bold mb-3">Galería</h2>
         <div className="grid grid-cols-3 gap-2">
-          {meta.gallery.map((emoji, index) => (
+          {getProviderGalleryUrls(walker.id, meta.gallery.length, category).map((src, index) => (
             <Card
-              key={`${emoji}-${index}`}
+              key={`${walker.id}-gallery-${index}`}
               padding="none"
-              className="aspect-square flex items-center justify-center text-4xl bg-gradient-to-br from-primary/5 to-accent/10"
+              className="aspect-square overflow-hidden bg-muted"
             >
-              {emoji}
+              <img
+                src={src}
+                alt={`${walker.name} gallery ${index + 1}`}
+                loading="lazy"
+                className="w-full h-full object-cover"
+              />
             </Card>
           ))}
         </div>
@@ -414,7 +420,7 @@ function ReviewsSection({
           return (
             <Card key={review.id}>
               <div className="flex gap-3">
-                <Avatar emoji={review.avatar} size="md" />
+                <Avatar {...getReviewAuthorAvatarProps(review.user, review.avatar)} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <p className="font-semibold text-sm truncate">{review.user}</p>

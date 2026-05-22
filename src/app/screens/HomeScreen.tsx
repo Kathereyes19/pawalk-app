@@ -27,6 +27,7 @@ import { CategoryFilterSheet } from '../components/walker/CategoryFilterSheet';
 import { MOCK_WALKERS, nudgeWalkerPosition } from '@/lib/walkers/mockWalkers';
 import { useHomeDiscovery } from '@/lib/walkers/useHomeDiscovery';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { getWalkerAvatarProps } from '@/lib/images';
 import {
   HOME_CATEGORIES,
   QUICK_FILTERS_BY_CATEGORY,
@@ -273,7 +274,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                   >
                     <div className="flex gap-4">
                       <div className="relative shrink-0">
-                        <Avatar emoji={provider.avatar} size="xl" />
+                        <Avatar {...getWalkerAvatarProps(provider)} size="xl" />
                         <span
                           className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${
                             provider.available ? 'bg-success' : 'bg-muted-foreground/50'
@@ -382,7 +383,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
 
             <div className="flex items-center gap-4">
               <div className="relative shrink-0">
-                <Avatar emoji={selectedProvider.avatar} size="xl" />
+                <Avatar {...getWalkerAvatarProps(selectedProvider)} size="xl" />
                 <span
                   className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${
                     selectedProvider.available ? 'bg-success' : 'bg-muted-foreground/50'

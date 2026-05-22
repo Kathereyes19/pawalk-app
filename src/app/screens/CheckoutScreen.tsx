@@ -28,6 +28,7 @@ import {
   type VetBookableServiceId,
 } from '@/lib/providers/serviceExperience';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { getWalkerAvatarProps, getPetAvatarProps } from '@/lib/images';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
@@ -128,7 +129,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-4 border-b border-border">
                 <div className="relative">
-                  <Avatar emoji={walker.avatar} size="xl" />
+                  <Avatar {...getWalkerAvatarProps(walker)} size="xl" />
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-success rounded-full flex items-center justify-center border-2 border-white">
                     <Check className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -164,7 +165,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                         key={pet.id}
                         className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/60 text-sm"
                       >
-                        <Avatar emoji={pet.avatar ?? '🐾'} size="sm" />
+                        <Avatar {...getPetAvatarProps({ avatar: pet.avatar, name: pet.name, id: pet.id })} size="sm" />
                         <span className="font-medium">{pet.name}</span>
                       </div>
                     ))}

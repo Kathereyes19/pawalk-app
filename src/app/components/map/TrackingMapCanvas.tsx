@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { MapBaseLayer } from './MapBaseLayer';
 import {
   buildPartialRoutePathD,
@@ -10,15 +10,22 @@ import {
 
 interface TrackingMapCanvasProps {
   progressPercent: number;
-  walkerAvatar: string;
+  /** Resolved profile image URL for the walker marker */
+  walkerImageSrc: string;
+  walkerImageAlt?: string;
+  /** @deprecated Use walkerImageSrc — kept for legacy callers */
+  walkerAvatar?: string;
   routePoints?: MapPercentPoint[];
 }
 
 function TrackingMapCanvasComponent({
   progressPercent,
+  walkerImageSrc,
+  walkerImageAlt = 'Walker',
   walkerAvatar,
   routePoints = DEFAULT_WALK_ROUTE,
 }: TrackingMapCanvasProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const clampedProgress = Math.min(100, Math.max(0, progressPercent));
   const fullRoutePath = useMemo(() => buildRoutePathD(routePoints), [routePoints]);
   const traveledPath = useMemo(
@@ -49,7 +56,6 @@ function TrackingMapCanvasComponent({
             </linearGradient>
           </defs>
 
-          {/* Remaining route (not yet walked) */}
           <path
             d={fullRoutePath}
             stroke="#94a3b8"
@@ -61,7 +67,6 @@ function TrackingMapCanvasComponent({
             opacity="0.55"
           />
 
-          {/* Completed / traveled route */}
           {traveledPath.length > 0 && (
             <path
               d={traveledPath}
@@ -119,15 +124,23 @@ function TrackingMapCanvasComponent({
           }}
         >
           <div className="relative">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-[3px] border-white bg-primary">
-              <span className="text-2xl leading-none">{walkerAvatar}</span>
+            <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] border-white bg-primary">
+              {!imageFailed ? (
+                <img
+                  src={walkerImageSrc}
+                  alt={walkerImageAlt}
+                  className="w-full h-full object-cover"
+                  onError={() => setImageFailed(true)}
+                />
+              ) : (
+                <span className="text-2xl leading-none">{walkerAvatar ?? '🐕'}</span>
+              )}
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-success border-2 border-white home-map-pin-live" />
           </div>
         </div>
       </MapBaseLayer>
 
-      {/* Soft fade so route does not clash with top overlays */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-[4] h-24 bg-gradient-to-b from-[#e8edf2]/95 to-transparent"
         aria-hidden

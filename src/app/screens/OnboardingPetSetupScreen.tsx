@@ -18,6 +18,7 @@ import { Input } from '../components/Input';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
+import { getPetAvatarProps } from '@/lib/images';
 import { IconButton } from '../components/IconButton';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 import { createPetId } from '@/lib/petId';
@@ -223,7 +224,16 @@ export const OnboardingPetSetupScreen: React.FC<OnboardingPetSetupScreenProps> =
                 <Card variant="elevated" padding="md">
                   <div className="flex gap-4">
                     <div className="relative">
-                      <Avatar emoji={pet.avatar} size="xl" className="rounded-2xl" />
+                      <Avatar
+                        {...getPetAvatarProps({
+                          avatar: pet.avatar,
+                          species: pet.species,
+                          name: pet.name,
+                          id: pet.id,
+                        })}
+                        size="xl"
+                        className="rounded-2xl"
+                      />
                       <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-card border-2 border-background rounded-full flex items-center justify-center">
                         <span className="text-xs">{pet.gender === 'male' ? '♂️' : '♀️'}</span>
                       </div>

@@ -1,11 +1,6 @@
-export function getPetAvatarProps(avatar: string): { emoji?: string; src?: string } {
-  if (!avatar) return { emoji: '🐾' };
-  if (avatar.startsWith('http') || avatar.startsWith('data:')) {
-    return { src: avatar };
-  }
-  return { emoji: avatar };
-}
+export { getPetAvatarProps } from '@/lib/images/avatarProps';
+export { isDirectImageUrl } from '@/lib/images/unsplash';
 
 export function isImageAvatar(avatar: string): boolean {
-  return avatar.startsWith('http') || avatar.startsWith('data:');
+  return isDirectImageUrl(avatar);
 }

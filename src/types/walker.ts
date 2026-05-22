@@ -10,6 +10,8 @@ export interface Walker {
   id: string;
   name: string;
   avatar: string;
+  /** Supabase or uploaded profile photo URL */
+  avatarUrl?: string | null;
   rating: number;
   reviews: number;
   distance: number;

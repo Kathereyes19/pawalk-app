@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Check, PawPrint } from 'lucide-react';
 import { Card } from '../Card';
 import { Avatar } from '../Avatar';
-import { getPetAvatarProps } from '@/lib/petAvatar';
+import { getPetAvatarProps } from '@/lib/images';
 import type { Pet } from '@/types';
 
 interface PetSelectionPickerProps {
@@ -105,7 +105,7 @@ export const PetSelectionPicker: React.FC<PetSelectionPickerProps> = ({
                   : 'border-border bg-card hover:bg-muted/40'
               }`}
             >
-              <Avatar {...getPetAvatarProps(pet.avatar)} size="lg" className="rounded-xl shrink-0" />
+              <Avatar {...getPetAvatarProps(pet)} size="lg" className="rounded-xl shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{pet.name}</p>
                 <p className="text-xs text-muted-foreground truncate">

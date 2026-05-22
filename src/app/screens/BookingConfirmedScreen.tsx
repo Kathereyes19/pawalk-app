@@ -3,6 +3,7 @@ import { Calendar, Clock, MapPin, Sparkles, CalendarDays, PawPrint } from 'lucid
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatReservationDate, formatReservationTime, formatCurrency } from '@/features/reservations';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { getWalkerAvatarProps } from '@/lib/images';
 import {
   formatCareDurationLabel,
   getCategoryBadgeLabel,
@@ -78,7 +79,7 @@ export const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
     >
       <Card variant="elevated" className="shadow-2xl border-2 border-primary/10 bg-gradient-to-br from-card to-primary/5">
         <div className="flex items-center gap-4 pb-4 border-b-2 border-border/50">
-          <Avatar emoji={walker.avatar} size="xl" />
+          <Avatar {...getWalkerAvatarProps(walker)} size="xl" />
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-bold text-lg">{walker.name}</h3>

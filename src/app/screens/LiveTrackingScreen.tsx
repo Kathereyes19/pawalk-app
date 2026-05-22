@@ -9,6 +9,7 @@ import { IconButton } from '../components/IconButton';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
 import type { Reservation, Walker } from '@/types';
+import { getWalkerAvatarProps } from '@/lib/images';
 import { TrackingMapCanvas } from '../components/map/TrackingMapCanvas';
 
 interface LiveTrackingScreenProps {
@@ -25,6 +26,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   onWalkComplete,
 }) => {
   const { t } = useLanguage();
+  const walkerAvatar = useMemo(() => getWalkerAvatarProps(walker), [walker]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [walkStatus, setWalkStatus] = useState<'on-way' | 'started' | 'break' | 'completed'>(
     reservation ? 'started' : 'on-way'
@@ -286,6 +288,8 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
       >
         <TrackingMapCanvas
           progressPercent={displayProgress}
+          walkerImageSrc={walkerAvatar.src!}
+          walkerImageAlt={walkerAvatar.alt}
           walkerAvatar={walker.avatar}
         />
 
@@ -436,7 +440,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           <Card className="mb-3 border-2 border-primary/20" variant="elevated">
             <div className="flex items-center gap-3 mb-3">
               <div className="relative">
-                <Avatar emoji={walker.avatar} size="xl" />
+                <Avatar {...walkerAvatar} size="xl" />
                 <motion.div
                   className="absolute -bottom-1 -right-1 w-6 h-6 bg-success rounded-full flex items-center justify-center border-2 border-white home-map-pin-live"
                 >

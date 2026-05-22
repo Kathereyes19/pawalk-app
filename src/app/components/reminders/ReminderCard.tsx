@@ -12,6 +12,7 @@ import { useLanguage } from '@/app/contexts/LanguageContext';
 import { Badge } from '../Badge';
 import { Card } from '../Card';
 import { Avatar } from '../Avatar';
+import { getPetAvatarProps } from '@/lib/images';
 import {
   CATEGORY_META,
   formatReminderDateTime,
@@ -72,7 +73,14 @@ export const ReminderCard: React.FC<ReminderCardProps> = ({
 
             {reminder.petName && (
               <div className="flex items-center gap-2 mt-2">
-                <Avatar emoji={petEmoji} size="sm" />
+                <Avatar
+                  {...getPetAvatarProps({
+                    avatar: petEmoji,
+                    name: reminder.petName ?? undefined,
+                    id: reminder.petId ?? undefined,
+                  })}
+                  size="sm"
+                />
                 <span className="text-sm font-medium truncate">{reminder.petName}</span>
               </div>
             )}
