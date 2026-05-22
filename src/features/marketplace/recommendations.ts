@@ -1,11 +1,12 @@
 import type {
   CartLineItem,
   MarketplaceCategory,
+  MarketplaceFilters,
   MarketplaceOrder,
   MarketplaceOrderItem,
-  MarketplaceOrderStatus,
   MarketplaceProduct,
 } from '@/types';
+import { matchesBrowseCategory } from './browseCategories';
 
 const CATEGORY_AFFINITY: Record<MarketplaceCategory, MarketplaceCategory[]> = {
   food: ['food', 'toys', 'grooming'],
@@ -28,6 +29,8 @@ export interface RecommendationContext {
   orders: MarketplaceOrder[];
   viewedProductIds: string[];
   productsById: Map<string, MarketplaceProduct>;
+  petSpecies?: Array<'dog' | 'cat'>;
+  activeBrowseCategory?: MarketplaceFilters['browseCategory'];
   limit?: number;
 }
 
@@ -51,7 +54,8 @@ function collectProductSignals(
 function scoreProduct(
   product: MarketplaceProduct,
   signals: { categories: Set<MarketplaceCategory>; tags: Set<string> },
-  excludeIds: Set<string>
+  excludeIds: Set<string>,
+  context: RecommendationContext
 ): number {
   if (excludeIds.has(product.id) || !product.inStock) return -1;
 
@@ -75,6 +79,19 @@ function scoreProduct(
     const relatedCategories = PET_TAG_AFFINITY[tag];
     if (relatedCategories?.includes(product.category)) {
       score += 5;
+    }
+  }
+
+  if (context.petSpecies?.includes('dog') && product.tags.some((tag) => tag.includes('perro'))) {
+    score += 10;
+  }
+  if (context.petSpecies?.includes('cat') && product.tags.some((tag) => tag.includes('gato'))) {
+    score += 10;
+  }
+
+  if (context.activeBrowseCategory && context.activeBrowseCategory !== 'all') {
+    if (matchesBrowseCategory(product, context.activeBrowseCategory)) {
+      score += 6;
     }
   }
 
@@ -114,7 +131,7 @@ export function getRecommendedProducts(
   const scored = products
     .map((product) => ({
       product,
-      score: scoreProduct(product, signals, excludeIds),
+      score: scoreProduct(product, signals, excludeIds, context),
     }))
     .filter((entry) => entry.score >= 0)
     .sort((a, b) => b.score - a.score);

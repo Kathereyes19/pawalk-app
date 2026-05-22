@@ -8,6 +8,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserData } from '@/contexts/UserDataContext';
 import { resolveUserId } from '@/lib/mockUser';
 import {
   createMarketplaceOrder,
@@ -75,6 +76,7 @@ const MarketplaceContext = createContext<MarketplaceContextValue | undefined>(un
 
 export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, session, isLoading: authLoading } = useAuth();
+  const { pets } = useUserData();
   const userId = resolveUserId(user?.id ?? null);
 
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
@@ -150,6 +152,12 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     [products, filters]
   );
 
+  const petSpecies = useMemo(
+    () =>
+      [...new Set(pets.map((pet) => pet.species).filter((s): s is 'dog' | 'cat' => s === 'dog' || s === 'cat'))],
+    [pets]
+  );
+
   const recommendedProducts = useMemo(
     () =>
       getRecommendedProducts(products, {
@@ -157,9 +165,11 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
         orders,
         viewedProductIds,
         productsById: productMap,
-        limit: 6,
+        petSpecies,
+        activeBrowseCategory: filters.browseCategory,
+        limit: 8,
       }),
-    [products, cartItems, orders, viewedProductIds, productMap]
+    [products, cartItems, orders, viewedProductIds, productMap, petSpecies, filters.browseCategory]
   );
 
   const priceBounds = useMemo(() => getMarketplacePriceBounds(products), [products]);

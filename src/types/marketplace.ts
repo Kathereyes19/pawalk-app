@@ -5,6 +5,14 @@ export type MarketplaceCategory =
   | 'veterinary'
   | 'services';
 
+export type MarketplaceBrowseCategory =
+  | 'dogs'
+  | 'cats'
+  | 'food'
+  | 'health'
+  | 'toys'
+  | 'grooming';
+
 export type MarketplaceView =
   | 'home'
   | 'product'
@@ -110,6 +118,7 @@ export interface MarketplaceOrderRow {
 export interface MarketplaceFilters {
   search: string;
   category: MarketplaceCategory | 'all';
+  browseCategory: MarketplaceBrowseCategory | 'all';
   minPrice: number;
   maxPrice: number;
   minRating: number;
@@ -125,6 +134,7 @@ export interface CreateMarketplaceOrderInput {
 export const DEFAULT_MARKETPLACE_FILTERS: MarketplaceFilters = {
   search: '',
   category: 'all',
+  browseCategory: 'all',
   minPrice: 0,
   maxPrice: 500000,
   minRating: 0,

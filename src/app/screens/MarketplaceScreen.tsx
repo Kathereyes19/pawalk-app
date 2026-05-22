@@ -10,7 +10,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   SlidersHorizontal,
-  Star,
 } from 'lucide-react';
 import { useLanguage } from '@/app/contexts/LanguageContext';
 import { useMarketplace } from '@/contexts/MarketplaceContext';
@@ -18,6 +17,7 @@ import { useUserData } from '@/contexts/UserDataContext';
 import {
   formatOrderDate,
   formatOrderId,
+  getProductGalleryUrls,
   resolveLiveOrderStatus,
 } from '@/features/marketplace';
 import {
@@ -32,6 +32,11 @@ import {
 } from '../components/checkout';
 import { AddPaymentMethodSheet } from '../components/payments/AddPaymentMethodSheet';
 import { ProductCard } from '../components/marketplace/ProductCard';
+import { ProductGridSkeleton } from '../components/marketplace/ProductCardSkeleton';
+import { ProductImage } from '../components/marketplace/ProductImage';
+import { StarRating } from '../components/marketplace/StarRating';
+import { MarketplaceCategoryChips } from '../components/marketplace/MarketplaceCategoryChips';
+import { MarketplaceTrustBar } from '../components/marketplace/MarketplaceTrustBar';
 import { CartItemRow } from '../components/marketplace/CartItemRow';
 import { MarketplaceFilterSheet } from '../components/marketplace/MarketplaceFilterSheet';
 import { OrderCard } from '../components/marketplace/OrderCard';
@@ -140,6 +145,7 @@ function MarketplaceHomeView() {
     openProduct,
     openCart,
     openOrders,
+    addToCart,
   } = useMarketplace();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -161,49 +167,77 @@ function MarketplaceHomeView() {
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               placeholder={t('marketplace.searchPlaceholder')}
-              className="w-full pl-9 pr-4 py-3 rounded-2xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full pl-9 pr-4 py-3.5 rounded-2xl border border-border bg-card text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
           <button
             type="button"
             onClick={() => setFiltersOpen(true)}
-            className="shrink-0 w-12 h-12 rounded-2xl border border-border bg-card flex items-center justify-center text-primary"
+            className="shrink-0 w-12 h-12 rounded-2xl border border-border bg-card flex items-center justify-center text-primary shadow-sm active:scale-95 transition-transform"
             aria-label="Filtros"
           >
             <SlidersHorizontal className="w-5 h-5" />
           </button>
         </div>
 
-        {!isLoading && recommendedProducts.length > 0 && (
-          <RecommendedProductsSection products={recommendedProducts} onProductClick={openProduct} />
-        )}
+        <MarketplaceTrustBar />
+
+        <MarketplaceCategoryChips
+          active={filters.browseCategory}
+          onChange={(browseCategory) => setFilters((current) => ({ ...current, browseCategory }))}
+        />
 
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <Card className="text-center py-12 border-dashed">
-            <ShoppingBag className="w-10 h-10 text-primary mx-auto mb-3" />
-            <p className="font-semibold">{t('marketplace.empty.title')}</p>
-            <p className="text-sm text-muted-foreground mt-1">{t('marketplace.empty.desc')}</p>
-            <Button size="sm" className="mt-4" variant="outline" onClick={resetFilters}>
-              {t('marketplace.filters.reset')}
-            </Button>
-          </Card>
+          <ProductGridSkeleton />
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {filteredProducts.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
-              >
-                <ProductCard product={product} onClick={() => openProduct(product.id)} />
-              </motion.div>
-            ))}
-          </div>
+          <>
+            {recommendedProducts.length > 0 && filters.browseCategory === 'all' && !filters.search && (
+              <RecommendedProductsSection
+                products={recommendedProducts}
+                onProductClick={openProduct}
+                onAddToCart={(productId) => addToCart(productId, 1)}
+              />
+            )}
+
+            <div className="flex items-center justify-between pt-1">
+              <h2 className="font-bold text-base">
+                {filters.browseCategory === 'all'
+                  ? t('marketplace.allProducts')
+                  : t(`marketplace.browse.${filters.browseCategory}`)}
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                {filteredProducts.length} {t('marketplace.results')}
+              </span>
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <Card className="text-center py-12 border-dashed">
+                <ShoppingBag className="w-10 h-10 text-primary mx-auto mb-3" />
+                <p className="font-semibold">{t('marketplace.empty.title')}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t('marketplace.empty.desc')}</p>
+                <Button size="sm" className="mt-4" variant="outline" onClick={resetFilters}>
+                  {t('marketplace.filters.reset')}
+                </Button>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredProducts.map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index * 0.04, 0.4) }}
+                  >
+                    <ProductCard
+                      product={product}
+                      onClick={() => openProduct(product.id)}
+                      onAddToCart={(productId) => addToCart(productId, 1)}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -233,9 +267,7 @@ function MarketplaceProductView() {
     );
   }
 
-  const gallery = selectedProduct.gallery.length
-    ? selectedProduct.gallery
-    : [selectedProduct.imageEmoji];
+  const gallery = getProductGalleryUrls(selectedProduct);
 
   return (
     <div className="h-full overflow-y-auto pb-28">
@@ -248,21 +280,28 @@ function MarketplaceProductView() {
       />
 
       <div className="p-4 space-y-4">
-        <Card padding="none" className="overflow-hidden">
-          <div className="h-56 bg-gradient-to-br from-primary/20 via-accent/10 to-secondary/20 flex items-center justify-center text-7xl">
-            {gallery[galleryIndex]}
+        <Card padding="none" className="overflow-hidden shadow-lg border-0">
+          <div className="relative h-72">
+            <ProductImage
+              product={selectedProduct}
+              size="detail"
+              srcOverride={gallery[galleryIndex]}
+              className="h-full w-full"
+              alt={selectedProduct.name}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
           </div>
-          <div className="flex gap-2 p-3 overflow-x-auto">
-            {gallery.map((item, index) => (
+          <div className="flex gap-2 p-3 overflow-x-auto bg-card">
+            {gallery.map((imageUrl, index) => (
               <button
-                key={index}
+                key={imageUrl}
                 type="button"
                 onClick={() => setGalleryIndex(index)}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl border ${
-                  galleryIndex === index ? 'border-primary bg-primary/10' : 'border-border'
+                className={`w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                  galleryIndex === index ? 'border-primary ring-2 ring-primary/20' : 'border-border'
                 }`}
               >
-                {item}
+                <img src={imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
               </button>
             ))}
           </div>
@@ -273,11 +312,12 @@ function MarketplaceProductView() {
             <p className="text-2xl font-bold text-primary">
               ${selectedProduct.price.toLocaleString()}
             </p>
-            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>{selectedProduct.rating.toFixed(1)}</span>
-              <span>({selectedProduct.reviewCount})</span>
-            </div>
+            <StarRating
+              rating={selectedProduct.rating}
+              reviewCount={selectedProduct.reviewCount}
+              size="md"
+              className="mt-2"
+            />
           </div>
           <Badge variant={selectedProduct.inStock ? 'success' : 'default'}>
             {selectedProduct.inStock ? t('marketplace.inStock') : t('marketplace.outOfStock')}

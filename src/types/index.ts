@@ -64,6 +64,7 @@ export type {
 
 export type {
   MarketplaceCategory,
+  MarketplaceBrowseCategory,
   MarketplaceView,
   MarketplaceOrderStatus,
   MarketplaceTrackingStep,

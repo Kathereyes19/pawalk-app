@@ -2,6 +2,7 @@ import React from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { IconButton } from '../IconButton';
 import { Card } from '../Card';
+import { ProductImage } from './ProductImage';
 import type { CartProduct } from '@/types';
 
 interface CartItemRowProps {
@@ -18,10 +19,10 @@ export const CartItemRow: React.FC<CartItemRowProps> = ({
   onRemove,
 }) => {
   return (
-    <Card padding="md" className="border border-border">
+    <Card padding="md" className="border border-border overflow-hidden">
       <div className="flex gap-3">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center text-3xl shrink-0">
-          {item.imageEmoji}
+        <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border border-border">
+          <ProductImage product={item} size="thumb" className="w-full h-full" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">

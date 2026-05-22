@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { MARKETPLACE_CATALOG } from './catalog';
+import { enrichMarketplaceProducts } from './productImages';
 import { createInitialTrackingSteps } from './orderTracking';
 import { loadStoredOrders, saveStoredOrders } from '@/lib/marketplaceStorage';
 import type {
@@ -19,7 +20,7 @@ function ensureId(prefix: string): string {
 }
 
 function mapRowToProduct(row: MarketplaceProductRow): MarketplaceProduct {
-  return {
+  const product: MarketplaceProduct = {
     id: row.id,
     name: row.name,
     slug: row.slug,
@@ -35,6 +36,7 @@ function mapRowToProduct(row: MarketplaceProductRow): MarketplaceProduct {
     inStock: row.in_stock,
     tags: row.tags ?? [],
   };
+  return product;
 }
 
 function normalizeOrder(order: MarketplaceOrder): MarketplaceOrder {
@@ -69,12 +71,12 @@ export async function fetchMarketplaceProducts(): Promise<{
   error: Error | null;
 }> {
   if (!isSupabaseConfigured()) {
-    return { products: MARKETPLACE_CATALOG, error: null };
+    return { products: enrichMarketplaceProducts(MARKETPLACE_CATALOG), error: null };
   }
 
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { products: MARKETPLACE_CATALOG, error: null };
+    return { products: enrichMarketplaceProducts(MARKETPLACE_CATALOG), error: null };
   }
 
   const { data, error } = await supabase
@@ -83,10 +85,16 @@ export async function fetchMarketplaceProducts(): Promise<{
     .order('name', { ascending: true });
 
   if (error || !data?.length) {
-    return { products: MARKETPLACE_CATALOG, error: error ? new Error(error.message) : null };
+    return {
+      products: enrichMarketplaceProducts(MARKETPLACE_CATALOG),
+      error: error ? new Error(error.message) : null,
+    };
   }
 
-  return { products: (data as MarketplaceProductRow[]).map(mapRowToProduct), error: null };
+  return {
+    products: enrichMarketplaceProducts((data as MarketplaceProductRow[]).map(mapRowToProduct)),
+    error: null,
+  };
 }
 
 export async function fetchMarketplaceOrdersByUserId(

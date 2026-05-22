@@ -1,4 +1,5 @@
 import type { MarketplaceFilters, MarketplaceProduct } from '@/types';
+import { matchesBrowseCategory } from './browseCategories';
 
 export function filterMarketplaceProducts(
   products: MarketplaceProduct[],
@@ -8,6 +9,12 @@ export function filterMarketplaceProducts(
 
   return products.filter((product) => {
     if (filters.category !== 'all' && product.category !== filters.category) {
+      return false;
+    }
+    if (
+      filters.browseCategory !== 'all' &&
+      !matchesBrowseCategory(product, filters.browseCategory)
+    ) {
       return false;
     }
     if (product.price < filters.minPrice || product.price > filters.maxPrice) {
