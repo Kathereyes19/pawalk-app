@@ -8,14 +8,13 @@ import { ConfirmDialog } from '../components/pets/ConfirmDialog';
 import { IconButton } from '../components/IconButton';
 import { ReminderCard } from '../components/reminders/ReminderCard';
 import { ReminderFab } from '../components/reminders/ReminderFab';
+import { ReminderStatusDashboard } from '../components/reminders/ReminderStatusDashboard';
 import { AddReminderSheet } from '../components/reminders/AddReminderSheet';
 import type { PetCareReminder, ReminderFilterTab } from '@/types';
 
 interface RemindersScreenProps {
   onBack: () => void;
 }
-
-const FILTER_TABS: ReminderFilterTab[] = ['upcoming', 'overdue', 'completed', 'all'];
 
 export const RemindersScreen: React.FC<RemindersScreenProps> = ({ onBack }) => {
   const { t } = useLanguage();
@@ -79,24 +78,6 @@ export const RemindersScreen: React.FC<RemindersScreenProps> = ({ onBack }) => {
     setDeleteTarget(null);
   };
 
-  const tabLabel = (tab: ReminderFilterTab) => {
-    switch (tab) {
-      case 'upcoming':
-        return t('reminders.tab.upcoming');
-      case 'overdue':
-        return t('reminders.tab.overdue');
-      case 'completed':
-        return t('reminders.tab.completed');
-      default:
-        return t('reminders.tab.all');
-    }
-  };
-
-  const tabCount = (tab: ReminderFilterTab) => {
-    if (tab === 'all') return statusCounts.upcoming + statusCounts.overdue + statusCounts.completed;
-    return statusCounts[tab];
-  };
-
   return (
     <div className="h-full overflow-y-auto pb-32 bg-background-secondary">
       <div className="sticky top-0 z-10 bg-gradient-to-br from-primary to-accent px-4 pt-4 pb-5 shadow-lg">
@@ -122,40 +103,11 @@ export const RemindersScreen: React.FC<RemindersScreenProps> = ({ onBack }) => {
       </div>
 
       <div className="px-4 -mt-3">
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {(['upcoming', 'overdue', 'completed'] as const).map((key) => (
-            <div
-              key={key}
-              className="rounded-2xl bg-card border border-border p-3 text-center shadow-sm"
-            >
-              <p className="text-xl font-bold text-primary">{statusCounts[key]}</p>
-              <p className="text-[11px] text-muted-foreground">{tabLabel(key)}</p>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
-          role="tablist"
-          aria-label={t('reminders.filterLabel')}
-        >
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
-              className={`shrink-0 px-4 py-2.5 min-h-11 rounded-full text-sm font-semibold transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                activeTab === tab
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'bg-card border border-border text-foreground-secondary hover:bg-muted/60'
-              }`}
-            >
-              {tabLabel(tab)} ({tabCount(tab)})
-            </button>
-          ))}
-        </div>
+        <ReminderStatusDashboard
+          statusCounts={statusCounts}
+          activeFilter={activeTab}
+          onFilterChange={setActiveTab}
+        />
       </div>
 
       <div className="p-4 space-y-3">

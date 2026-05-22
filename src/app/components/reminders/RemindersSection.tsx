@@ -4,6 +4,7 @@ import { Bell, ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/app/contexts/LanguageContext';
 import { useReminders } from '@/contexts/RemindersContext';
 import { ProfileSectionCard } from '../profile/ProfileSectionCard';
+import { ReminderSummaryText } from './ReminderSummaryText';
 
 interface RemindersSectionProps {
   onOpenReminders: () => void;
@@ -12,8 +13,6 @@ interface RemindersSectionProps {
 export const RemindersSection: React.FC<RemindersSectionProps> = ({ onOpenReminders }) => {
   const { t } = useLanguage();
   const { statusCounts } = useReminders();
-
-  const pendingCount = statusCounts.upcoming + statusCounts.overdue;
 
   return (
     <ProfileSectionCard
@@ -35,16 +34,7 @@ export const RemindersSection: React.FC<RemindersSectionProps> = ({ onOpenRemind
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold">{t('reminders.manage')}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {pendingCount > 0
-                ? t('reminders.sectionPending').replace('{count}', String(pendingCount))
-                : t('reminders.sectionEmpty')}
-            </p>
-            {statusCounts.overdue > 0 && (
-              <p className="text-xs text-destructive font-medium mt-1">
-                {t('reminders.sectionOverdue').replace('{count}', String(statusCounts.overdue))}
-              </p>
-            )}
+            <ReminderSummaryText statusCounts={statusCounts} />
           </div>
           <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
         </motion.div>
