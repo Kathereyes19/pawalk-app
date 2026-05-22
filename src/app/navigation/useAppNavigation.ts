@@ -9,7 +9,7 @@ import { getReservationCategory } from '@/lib/providers/reservationCategory';
 import { supportsLiveTracking } from '@/lib/providers/serviceExperience';
 import {
   AUTH_ENTRY_SCREEN,
-  loadUserBundle,
+  isAuthEntryScreen,
   requiresAuth,
   resolveAuthenticatedScreen,
 } from '@/features/user';
@@ -89,8 +89,9 @@ export function useAppNavigation() {
   /** Session restore: send completed users to home */
   useEffect(() => {
     if (!isAppReady || !resolvedUserId || userDataLoading) return;
-    if (onboardingCompleted && ['login', 'signup'].includes(currentScreen)) {
+    if (onboardingCompleted && isAuthEntryScreen(currentScreen)) {
       setCurrentScreen(POST_AUTH_HOME);
+      setActiveTab('home');
     }
   }, [
     isAppReady,
@@ -98,6 +99,35 @@ export function useAppNavigation() {
     userDataLoading,
     onboardingCompleted,
     currentScreen,
+  ]);
+
+  /** Redirect when Supabase session becomes available on auth screens */
+  useEffect(() => {
+    if (!isAppReady || isNavigating) return;
+    if (!session?.user?.id) return;
+    if (!isAuthEntryScreen(currentScreen)) return;
+
+    const uid = resolveUserId(session.user.id);
+    if (!uid) return;
+
+    hasBootstrapped.current = true;
+    setWelcomeMode('none');
+
+    void (async () => {
+      setIsNavigating(true);
+      try {
+        await applyBundleAndNavigate(uid);
+        setActiveTab('home');
+      } finally {
+        setIsNavigating(false);
+      }
+    })();
+  }, [
+    isAppReady,
+    isNavigating,
+    session?.user?.id,
+    currentScreen,
+    applyBundleAndNavigate,
   ]);
 
   /** Completed users must not see auth/onboarding again */
@@ -127,28 +157,28 @@ export function useAppNavigation() {
     setCurrentScreen('login');
   }, []);
 
-  const handleLogin = useCallback(async () => {
-    clearPendingOnboarding();
-    const uid = resolvedUserId;
-    if (!uid) {
-      setCurrentScreen(AUTH_ENTRY_SCREEN);
-      return;
-    }
+  const handleLogin = useCallback(
+    async (loginUserId?: string | null) => {
+      clearPendingOnboarding();
+      setWelcomeMode('none');
+      hasBootstrapped.current = true;
 
-    setIsNavigating(true);
-    await refreshUserData();
-    const bundle = await loadUserBundle(uid);
-    setProfile(bundle.profile);
-    setPets(bundle.pets);
-    setOnboardingCompleted(bundle.onboardingCompleted);
+      const uid = resolveUserId(loginUserId ?? session?.user?.id ?? resolvedUserId);
+      if (!uid) {
+        setCurrentScreen(AUTH_ENTRY_SCREEN);
+        return;
+      }
 
-    if (bundle.onboardingCompleted) {
-      setCurrentScreen(POST_AUTH_HOME);
-    } else {
-      setCurrentScreen(resolveAuthenticatedScreen(bundle));
-    }
-    setIsNavigating(false);
-  }, [resolvedUserId, refreshUserData, setProfile, setPets, setOnboardingCompleted]);
+      setIsNavigating(true);
+      try {
+        await applyBundleAndNavigate(uid);
+        setActiveTab('home');
+      } finally {
+        setIsNavigating(false);
+      }
+    },
+    [session?.user?.id, resolvedUserId, applyBundleAndNavigate]
+  );
 
   const handleSignUp = useCallback(() => {
     setPendingOnboarding(true);

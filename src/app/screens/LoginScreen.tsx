@@ -7,11 +7,11 @@ import { Input } from '../components/Input';
 import { IconButton } from '../components/IconButton';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 import { signInWithEmail, validateSignIn } from '@/features/auth';
-import { setMockUserId } from '@/lib/mockUser';
+import { resolveUserId, setMockUserId } from '@/lib/mockUser';
 
 interface LoginScreenProps {
   onBack?: () => void;
-  onLogin: () => void;
+  onLogin: (userId?: string | null) => void | Promise<void>;
   onSignUp: () => void;
 }
 
@@ -50,19 +50,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, onLogin, onSig
       return;
     }
 
-    const finishLogin = () => {
+    const userId = resolveUserId(result.data?.userId ?? null);
+
+    const finishLogin = async () => {
       setIsLoading(false);
       setShowSuccess(true);
-      setTimeout(() => {
-        onLogin();
-      }, 1500);
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+      try {
+        await onLogin(userId);
+      } finally {
+        setShowSuccess(false);
+      }
     };
 
-    if (result.mode === 'mock') {
-      setTimeout(finishLogin, 2000);
-    } else {
-      finishLogin();
-    }
+    await finishLogin();
   };
 
   return (
