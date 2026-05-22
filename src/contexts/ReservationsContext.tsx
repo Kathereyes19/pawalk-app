@@ -16,6 +16,7 @@ import {
   completeReservation,
   type CreateReservationInput,
 } from '@/features/reservations';
+import { normalizeReservationCategory } from '@/lib/providers/reservationCategory';
 import type { Reservation, ReservationStatus } from '@/types';
 
 export interface ReservationsContextValue {
@@ -89,17 +90,33 @@ export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ childr
   const bookReservation = useCallback(
     async (input: CreateReservationInput) => {
       if (!userId) {
-        return { error: 'No authenticated user' };
+        return { error: 'Inicia sesión para confirmar la reserva.' };
       }
 
-      const { reservation, error: createError } = await createReservation(userId, input);
-      if (createError || !reservation) {
-        return { error: createError?.message ?? 'Could not create reservation' };
-      }
+      try {
+        const { reservation, error: createError } = await createReservation(userId, input);
+        if (createError || !reservation) {
+          return { error: createError?.message ?? 'No se pudo crear la reserva.' };
+        }
 
-      setLastCreatedReservationId(reservation.id);
-      await refreshReservations();
-      return { error: null };
+        const normalized = normalizeReservationCategory(reservation);
+        setLastCreatedReservationId(normalized.id);
+        setReservations((current) => [
+          normalized,
+          ...current.filter((item) => item.id !== normalized.id),
+        ]);
+
+        void refreshReservations().catch(() => {
+          /* keep optimistic reservation if refresh fails */
+        });
+
+        return { error: null };
+      } catch (err) {
+        return {
+          error:
+            err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
+        };
+      }
     },
     [userId, refreshReservations]
   );

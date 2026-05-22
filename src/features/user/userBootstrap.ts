@@ -62,6 +62,7 @@ export const PROTECTED_SCREENS: AppScreen[] = [
   'confirmed',
   'tracking',
   'notifications',
+  'reminders',
 ];
 
 export const ONBOARDING_FLOW_SCREENS: AppScreen[] = [

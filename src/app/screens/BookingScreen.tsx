@@ -3,15 +3,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { buildUpcomingBookingDates } from '@/lib/bookingDates';
-import { calculateBookingTotals } from '@/features/reservations';
 import {
   canBookImmediately,
-  filterDatesForWalker,
-  filterTimeSlotsForWalker,
-  getSuggestedBookingSlot,
-  getWalkerAvailabilityValidationMessage,
-  isBeforeWalkerAvailability,
 } from '@/lib/walkers/availability';
+import {
+  filterDatesForProvider,
+  filterTimeSlotsForProvider,
+  getSuggestedProviderBookingSlot,
+  validateBookingAvailability,
+} from '@/lib/providers/bookingAvailability';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -19,7 +19,17 @@ import { Badge } from '../components/Badge';
 import { IconButton } from '../components/IconButton';
 import { TermsAcceptanceCheckbox } from '../components/booking/TermsAcceptanceCheckbox';
 import { PetSelectionPicker } from '../components/booking/PetSelectionPicker';
-import type { Walker, Pet, BookingData } from '@/types';
+import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import {
+  calculateCategoryBookingTotals,
+  formatCareDurationLabel,
+  getCareDurationOptions,
+  getInstitutionMeta,
+  getProfileBookCta,
+  getVetServicesForProvider,
+} from '@/lib/providers/serviceExperience';
+import type { Walker, Pet, BookingData, CaregiverServiceOffer } from '@/types';
+import type { VetBookableServiceId } from '@/lib/providers/serviceExperience';
 
 interface BookingScreenProps {
   walker: Walker;
@@ -35,9 +45,20 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   onContinue,
 }) => {
   const { t } = useLanguage();
+  const category = getWalkerHomeCategory(walker);
+  const vetServices = useMemo(() => getVetServicesForProvider(walker), [walker]);
+  const careTypes = walker.caregiverServices ?? ['in-home'];
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedDuration, setSelectedDuration] = useState<30 | 60 | 90>(60);
+  const [selectedCareType, setSelectedCareType] = useState<CaregiverServiceOffer>(careTypes[0]);
+  const [selectedCareDuration, setSelectedCareDuration] = useState<number>(
+    getCareDurationOptions(careTypes[0])[1]?.value ?? 480
+  );
+  const [selectedVetServiceId, setSelectedVetServiceId] = useState<VetBookableServiceId>(
+    vetServices[0]?.id ?? 'consultation'
+  );
+  const [careInstructions, setCareInstructions] = useState('');
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>(() =>
     pets.length > 0 ? [pets[0].id] : []
   );
@@ -46,7 +67,30 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [validationError, setValidationError] = useState<string>('');
 
   const instantBooking = canBookImmediately(walker);
-  const suggestedSlot = useMemo(() => getSuggestedBookingSlot(walker), [walker]);
+  const isOvernightCare = category === 'caregivers' && selectedCareDuration >= 1440;
+  const availabilityContext = useMemo(
+    () => ({
+      isOvernight: isOvernightCare,
+      duration:
+        category === 'caregivers'
+          ? selectedCareDuration
+          : category === 'veterinary'
+            ? vetServices.find((s) => s.id === selectedVetServiceId)?.durationMinutes ?? 45
+            : selectedDuration,
+    }),
+    [
+      category,
+      isOvernightCare,
+      selectedCareDuration,
+      selectedDuration,
+      selectedVetServiceId,
+      vetServices,
+    ]
+  );
+  const suggestedSlot = useMemo(
+    () => getSuggestedProviderBookingSlot(category, walker, availabilityContext),
+    [category, walker, availabilityContext]
+  );
 
   const baseTimeSlots = useMemo(
     () => [
@@ -64,14 +108,28 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   );
 
   const availableDates = useMemo(
-    () => filterDatesForWalker(buildUpcomingBookingDates(7), walker, baseTimeSlots),
-    [walker, baseTimeSlots]
+    () =>
+      filterDatesForProvider(
+        category,
+        buildUpcomingBookingDates(7),
+        walker,
+        baseTimeSlots,
+        availabilityContext
+      ),
+    [category, walker, baseTimeSlots, availabilityContext]
   );
 
   const effectiveDate = selectedDate || availableDates.find((d) => d.available)?.date || '';
   const timeSlots = useMemo(
-    () => filterTimeSlotsForWalker(effectiveDate, baseTimeSlots, walker),
-    [effectiveDate, baseTimeSlots, walker]
+    () =>
+      filterTimeSlotsForProvider(
+        category,
+        effectiveDate,
+        baseTimeSlots,
+        walker,
+        availabilityContext
+      ),
+    [category, effectiveDate, baseTimeSlots, walker, availabilityContext]
   );
 
   const handleDateSelect = (date: string) => {
@@ -126,10 +184,23 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
 
   const selectedPetCount = Math.max(1, selectedPetIds.length || (pets.length > 0 ? 1 : 0));
 
-  const durations = useMemo(
-    () =>
-      ([30, 60, 90] as const).map((value) => {
-        const totals = calculateBookingTotals(walker.price, value, selectedPetCount);
+  const selectedVetService = useMemo(
+    () => vetServices.find((service) => service.id === selectedVetServiceId) ?? vetServices[0],
+    [selectedVetServiceId, vetServices]
+  );
+
+  const effectiveDurationMinutes = useMemo(() => {
+    if (category === 'walkers') return selectedDuration;
+    if (category === 'caregivers') return selectedCareDuration;
+    return selectedVetService?.durationMinutes ?? 45;
+  }, [category, selectedCareDuration, selectedDuration, selectedVetService]);
+
+  const durations = useMemo(() => {
+    const offered = walker.walkDurations ?? [30, 60, 90];
+    return ([30, 60, 90] as const)
+      .filter((value) => offered.includes(value))
+      .map((value) => {
+        const totals = calculateCategoryBookingTotals(walker, 'walkers', value, selectedPetCount);
         const descriptions: Record<30 | 60 | 90, string> = {
           30: 'Paseo corto ideal para cachorros',
           60: 'Paseo estándar recomendado',
@@ -143,9 +214,29 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
           description: descriptions[value],
           recommended: value === 60,
         };
-      }),
-    [walker.price, selectedPetCount, t]
+      });
+  }, [walker, selectedPetCount, t]);
+
+  const careDurations = useMemo(
+    () =>
+      getCareDurationOptions(selectedCareType).map((option) => ({
+        ...option,
+        price: calculateCategoryBookingTotals(
+          walker,
+          'caregivers',
+          option.value,
+          selectedPetCount
+        ).totalPrice,
+      })),
+    [selectedCareType, selectedPetCount, walker]
   );
+
+  useEffect(() => {
+    const options = getCareDurationOptions(selectedCareType);
+    if (!options.some((option) => option.value === selectedCareDuration)) {
+      setSelectedCareDuration(options[0]?.value ?? 480);
+    }
+  }, [selectedCareType, selectedCareDuration]);
 
   const handleContinue = () => {
     if (!selectedDate) {
@@ -164,8 +255,18 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       setValidationError('Selecciona al menos una mascota');
       return;
     }
-    if (isBeforeWalkerAvailability(selectedDate, selectedTime, walker)) {
-      setValidationError(getWalkerAvailabilityValidationMessage(walker));
+    const availability = validateBookingAvailability(
+      category,
+      selectedDate,
+      selectedTime,
+      walker,
+      {
+        isOvernight: isOvernightCare,
+        duration: effectiveDurationMinutes,
+      }
+    );
+    if (!availability.valid) {
+      setValidationError(availability.message);
       return;
     }
 
@@ -173,12 +274,28 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
     const selectedPets = pets
       .filter((pet) => selectedPetIds.includes(pet.id))
       .map((pet) => ({ id: pet.id, name: pet.name, avatar: pet.avatar }));
-    const totals = calculateBookingTotals(walker.price, selectedDuration, selectedPets.length);
+    const totals = calculateCategoryBookingTotals(
+      walker,
+      category,
+      effectiveDurationMinutes,
+      selectedPets.length,
+      category === 'veterinary' ? selectedVetService : null
+    );
+    const isOvernight = category === 'caregivers' && selectedCareDuration >= 1440;
+    const institutionMeta = category === 'veterinary' ? getInstitutionMeta(walker) : null;
 
     onContinue({
       date: selectedDate,
       time: selectedTime,
-      duration: selectedDuration,
+      duration: effectiveDurationMinutes,
+      durationLabel: formatCareDurationLabel(effectiveDurationMinutes, isOvernight),
+      serviceCategory: category,
+      selectedServiceId: category === 'veterinary' ? selectedVetService?.id : undefined,
+      selectedServiceName: category === 'veterinary' ? selectedVetService?.name : undefined,
+      careType: category === 'caregivers' ? selectedCareType : undefined,
+      careInstructions: category === 'caregivers' ? careInstructions.trim() || undefined : undefined,
+      isOvernight,
+      institutionAddress: institutionMeta?.address,
       pets: selectedPets,
       petIds: selectedPetIds,
       serviceFee: totals.servicePrice,
@@ -188,7 +305,24 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   };
 
   const selectedDurationData = durations.find((d) => d.value === selectedDuration);
-  const calculatedPrice = selectedDurationData?.price ?? calculateBookingTotals(walker.price, selectedDuration, selectedPetCount).totalPrice;
+  const calculatedPrice =
+    calculateCategoryBookingTotals(
+      walker,
+      category,
+      effectiveDurationMinutes,
+      selectedPetCount,
+      category === 'veterinary' ? selectedVetService : null
+    ).totalPrice;
+
+  const bookingTitle =
+    category === 'walkers'
+      ? 'Reservar paseo'
+      : category === 'caregivers'
+        ? 'Reservar cuidado'
+        : getProfileBookCta(category, selectedVetServiceId);
+
+  const providerLabel =
+    category === 'veterinary' ? 'Centro de servicios' : category === 'caregivers' ? 'Cuidador' : t('walker.book');
 
   return (
     <div className="h-full overflow-y-auto pb-32 bg-background-secondary">
@@ -223,8 +357,9 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
           </AnimatePresence>
         </div>
 
-        <h1 className="text-2xl font-bold text-white mb-1">{t('walker.book')}</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">{bookingTitle}</h1>
         <p className="text-white/90 font-medium">{walker.name}</p>
+        <p className="text-white/70 text-sm mt-1">{providerLabel}</p>
 
         {/* Progress Indicator */}
         <div className="flex items-center gap-2 mt-4">
@@ -253,7 +388,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               <Clock className="w-5 h-5 text-warning shrink-0 mt-0.5" />
               <div className="space-y-2">
                 <p className="font-semibold text-sm">
-                  Este paseador no está disponible de inmediato
+                  {category === 'veterinary'
+                    ? 'Este centro requiere agendamiento'
+                    : category === 'caregivers'
+                      ? 'Este cuidador no está disponible de inmediato'
+                      : 'Este paseador no está disponible de inmediato'}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Puedes agendar para su próximo horario disponible. Revisa la fecha y hora sugeridas abajo.
@@ -262,6 +401,57 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               </div>
             </div>
           </Card>
+        )}
+
+        {category === 'veterinary' && (
+          <div>
+            <h2 className="text-lg font-bold mb-3">Selecciona el servicio</h2>
+            <div className="space-y-2">
+              {vetServices.map((service) => (
+                <Card
+                  key={service.id}
+                  hoverable
+                  onClick={() => setSelectedVetServiceId(service.id)}
+                  className={`cursor-pointer ${
+                    selectedVetServiceId === service.id
+                      ? 'border-2 border-primary bg-primary/5'
+                      : 'border border-border'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{service.icon}</span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">{service.name}</p>
+                      <p className="text-xs text-muted-foreground">{service.description}</p>
+                    </div>
+                    <Badge variant="outline">{service.durationMinutes} min</Badge>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {category === 'caregivers' && (
+          <div>
+            <h2 className="text-lg font-bold mb-3">Tipo de cuidado</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {careTypes.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setSelectedCareType(type)}
+                  className={`rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
+                    selectedCareType === type
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-card border border-border text-muted-foreground'
+                  }`}
+                >
+                  {type === 'overnight' ? '🌙 Nocturno' : type === 'in-home' ? '🏠 En casa' : '🐾 Multi-mascota'}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Pet Selection */}
@@ -409,7 +599,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Duration Selection */}
+        {/* Duration / care period selection */}
         <AnimatePresence>
           {selectedDate && selectedTime && (
             <motion.div
@@ -417,80 +607,112 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <h2 className="text-lg font-bold mb-3">{t('booking.duration')}</h2>
-              <div className="space-y-2.5">
-                {durations.map((duration, index) => (
-                  <motion.div
-                    key={duration.value}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.08 }}
-                  >
-                    <Card
-                      onClick={() => setSelectedDuration(duration.value as 30 | 60 | 90)}
-                      hoverable
-                      className={`cursor-pointer transition-all relative ${
-                        selectedDuration === duration.value
-                          ? 'border-2 border-primary bg-primary/5 shadow-lg'
-                          : 'border border-border'
-                      }`}
-                    >
-                      {duration.recommended && (
-                        <div className="absolute -top-2 left-4">
-                          <Badge className="bg-gradient-to-r from-secondary to-accent text-white text-xs px-2 py-0.5">
-                            Recomendado
-                          </Badge>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <motion.div
-                            animate={{
-                              scale: selectedDuration === duration.value ? [1, 1.1, 1] : 1,
-                            }}
-                            transition={{ duration: 0.3 }}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              selectedDuration === duration.value
-                                ? 'border-primary bg-primary'
-                                : 'border-border'
-                            }`}
-                          >
-                            {selectedDuration === duration.value && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ type: 'spring', stiffness: 500 }}
-                              >
-                                <Check className="w-4 h-4 text-white" />
-                              </motion.div>
-                            )}
-                          </motion.div>
-
-                          <div className="flex-1">
-                            <p className="font-semibold">{duration.label}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {duration.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="font-bold text-primary text-lg">
-                            ${duration.price.toLocaleString()}
-                          </p>
-                          {duration.value !== 60 && (
-                            <p className="text-xs text-muted-foreground">
-                              {duration.value > 60 ? '+' : ''}
-                              {Math.round(((duration.servicePrice / calculateBookingTotals(walker.price, 60, selectedPetCount).servicePrice) - 1) * 100)}%
-                            </p>
+              {category === 'walkers' && (
+                <>
+                  <h2 className="text-lg font-bold mb-3">{t('booking.duration')}</h2>
+                  <div className="space-y-2.5">
+                    {durations.map((duration, index) => (
+                      <motion.div
+                        key={duration.value}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.08 }}
+                      >
+                        <Card
+                          onClick={() => setSelectedDuration(duration.value as 30 | 60 | 90)}
+                          hoverable
+                          className={`cursor-pointer transition-all relative ${
+                            selectedDuration === duration.value
+                              ? 'border-2 border-primary bg-primary/5 shadow-lg'
+                              : 'border border-border'
+                          }`}
+                        >
+                          {duration.recommended && (
+                            <div className="absolute -top-2 left-4">
+                              <Badge className="bg-gradient-to-r from-secondary to-accent text-white text-xs px-2 py-0.5">
+                                Recomendado
+                              </Badge>
+                            </div>
                           )}
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div
+                                className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                                  selectedDuration === duration.value
+                                    ? 'bg-primary text-white'
+                                    : 'bg-muted'
+                                }`}
+                              >
+                                <Clock className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <p className="font-bold">{duration.label}</p>
+                                <p className="text-xs text-muted-foreground">{duration.description}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-primary">${duration.price.toLocaleString()}</p>
+                              {selectedDuration === duration.value && (
+                                <Check className="w-5 h-5 text-primary ml-auto mt-1" />
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {category === 'caregivers' && (
+                <>
+                  <h2 className="text-lg font-bold mb-3">Periodo de cuidado</h2>
+                  <div className="space-y-2.5">
+                    {careDurations.map((option) => (
+                      <Card
+                        key={option.value}
+                        hoverable
+                        onClick={() => setSelectedCareDuration(option.value)}
+                        className={`cursor-pointer ${
+                          selectedCareDuration === option.value
+                            ? 'border-2 border-primary bg-primary/5'
+                            : 'border border-border'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold">{option.label}</p>
+                            <p className="text-xs text-muted-foreground">{option.description}</p>
+                          </div>
+                          <p className="font-bold text-primary">${option.price.toLocaleString()}</p>
                         </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="mt-4">
+                    <h3 className="text-sm font-semibold mb-2">Instrucciones de cuidado</h3>
+                    <textarea
+                      value={careInstructions}
+                      onChange={(event) => setCareInstructions(event.target.value)}
+                      placeholder="Horarios de comida, medicamentos, rutinas especiales..."
+                      className="w-full min-h-[96px] rounded-2xl border border-border bg-card px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                </>
+              )}
+
+              {category === 'veterinary' && selectedVetService && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <p className="text-sm font-semibold mb-1">Cita confirmada</p>
+                  <p className="text-lg font-bold">{selectedVetService.name}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Duración estimada: {selectedVetService.durationMinutes} min ·{' '}
+                    {getInstitutionMeta(walker).address}
+                  </p>
+                </Card>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -647,7 +869,12 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                   </div>
                   <div>
                     <p className="text-muted-foreground mb-1">Duración</p>
-                    <p className="font-semibold">{selectedDuration} min</p>
+                    <p className="font-semibold">
+                      {formatCareDurationLabel(
+                        effectiveDurationMinutes,
+                        category === 'caregivers' && selectedCareDuration >= 1440
+                      )}
+                    </p>
                   </div>
                 </div>
               </motion.div>

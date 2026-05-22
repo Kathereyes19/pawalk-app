@@ -12,6 +12,12 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useReservations } from '@/contexts/ReservationsContext';
 import { resolveEffectiveStatus } from '@/features/reservations';
+import {
+  filterReservationsByCategory,
+  getReservationCategory,
+  type ReservationCategoryFilter,
+} from '@/lib/providers/reservationCategory';
+import { supportsLiveTracking } from '@/lib/providers/serviceExperience';
 import { Button } from '../components/Button';
 import { ReservationCard } from '../components/reservations/ReservationCard';
 import type { Reservation, ReservationTab } from '@/types';
@@ -27,6 +33,13 @@ const tabs: { id: ReservationTab; icon: React.ElementType }[] = [
   { id: 'history', icon: History },
 ];
 
+const categoryFilters: { id: ReservationCategoryFilter; label: string }[] = [
+  { id: 'all', label: 'Todos' },
+  { id: 'walkers', label: 'Paseos' },
+  { id: 'caregivers', label: 'Cuidado' },
+  { id: 'veterinary', label: 'Vet/Servicios' },
+];
+
 export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
   onViewTracking,
   onViewWalkDetail,
@@ -34,14 +47,20 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
   const { t, language } = useLanguage();
   const { reservations, isLoading, error, refreshReservations } = useReservations();
   const [activeTab, setActiveTab] = useState<ReservationTab>('upcoming');
+  const [categoryFilter, setCategoryFilter] = useState<ReservationCategoryFilter>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const filteredReservations = useMemo(
+    () => filterReservationsByCategory(reservations, categoryFilter),
+    [reservations, categoryFilter]
+  );
 
   const grouped = useMemo(() => {
     const upcoming: Reservation[] = [];
     const active: Reservation[] = [];
     const history: Reservation[] = [];
 
-    for (const reservation of reservations) {
+    for (const reservation of filteredReservations) {
       const status = resolveEffectiveStatus(reservation);
       if (status === 'scheduled') upcoming.push(reservation);
       else if (status === 'active') active.push(reservation);
@@ -55,7 +74,7 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
     );
 
     return { upcoming, active, history };
-  }, [reservations]);
+  }, [filteredReservations]);
 
   const currentList =
     activeTab === 'upcoming'
@@ -156,6 +175,23 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
             );
           })}
         </div>
+
+        <div className="px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+          {categoryFilters.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setCategoryFilter(id)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                categoryFilter === id
+                  ? 'bg-secondary text-secondary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="p-4 space-y-3">
@@ -211,7 +247,8 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
               startsInLabel={t('reservations.startsIn')}
               onTrack={
                 activeTab === 'active' &&
-                resolveEffectiveStatus(reservation) === 'active'
+                resolveEffectiveStatus(reservation) === 'active' &&
+                supportsLiveTracking(getReservationCategory(reservation))
                   ? onViewTracking
                   : undefined
               }
@@ -225,10 +262,10 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
             />
           ))}
 
-        {!isLoading && !error && reservations.length > 0 && (
+        {!isLoading && !error && filteredReservations.length > 0 && (
           <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
             <CalendarDays className="w-4 h-4" />
-            {t('reservations.count').replace('{count}', String(reservations.length))}
+            {t('reservations.count').replace('{count}', String(filteredReservations.length))}
           </div>
         )}
       </div>

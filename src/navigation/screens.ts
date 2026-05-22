@@ -18,7 +18,8 @@ export type AppScreen =
   | 'confirmed'
   | 'tracking'
   | 'walk-detail'
-  | 'notifications';
+  | 'notifications'
+  | 'reminders';
 
 export type BottomNavTab = 'home' | 'bookings' | 'pets' | 'profile';
 
@@ -39,6 +40,7 @@ export const ROUTE_PATHS = {
   tracking: '/tracking/:bookingId',
   walkDetail: '/walks/:bookingId',
   notifications: '/notifications',
+  reminders: '/reminders',
   bookingsTab: '/bookings',
   petsTab: '/pets',
   profileTab: '/profile',

@@ -1,5 +1,19 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, Navigation, PawPrint, Route, Timer, ChevronRight } from 'lucide-react';
+import {
+  Building2,
+  Calendar,
+  Clock,
+  Home,
+  MapPin,
+  Moon,
+  Navigation,
+  PawPrint,
+  Route,
+  Stethoscope,
+  Timer,
+  ChevronRight,
+  FileText,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { Avatar } from '../Avatar';
 import { Badge } from '../Badge';
@@ -16,6 +30,13 @@ import {
   getWalkProgress,
   resolveEffectiveStatus,
 } from '@/features/reservations';
+import {
+  formatCareDurationLabel,
+  getCategoryBadgeLabel,
+  getReservationSummaryTitle,
+  supportsLiveTracking,
+} from '@/lib/providers/serviceExperience';
+import { getReservationCategory } from '@/lib/providers/reservationCategory';
 import type { Reservation, ReservationTab } from '@/types';
 
 interface ReservationCardProps {
@@ -39,6 +60,7 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
   trackLabel,
   startsInLabel,
 }) => {
+  const category = getReservationCategory(reservation);
   const effectiveStatus = resolveEffectiveStatus(reservation);
   const isActive = effectiveStatus === 'active';
   const isCompleted = effectiveStatus === 'completed';
@@ -47,6 +69,11 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
   const minutesUntilStart = getMinutesUntilStart(reservation);
   const petsLabel = formatReservationPetsLabel(reservation);
   const petCount = getReservationPetCount(reservation);
+  const canTrack = supportsLiveTracking(category);
+  const durationLabel = formatCareDurationLabel(
+    reservation.durationMinutes,
+    reservation.isOvernight
+  );
 
   return (
     <motion.div
@@ -76,6 +103,16 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {getCategoryBadgeLabel(category)}
+                  </Badge>
+                  {reservation.selectedServiceName && (
+                    <span className="text-[11px] text-muted-foreground truncate">
+                      {reservation.selectedServiceName}
+                    </span>
+                  )}
+                </div>
                 <h3 className="font-semibold truncate">{reservation.walkerName}</h3>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <PawPrint className="w-3.5 h-3.5" />
@@ -106,11 +143,24 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="w-4 h-4 shrink-0" />
                 <span>
-                  {formatReservationTime(reservation.scheduledTime)} · {reservation.durationMinutes}{' '}
-                  min
+                  {formatReservationTime(reservation.scheduledTime)} · {durationLabel}
                 </span>
               </div>
             </div>
+
+            {category === 'veterinary' && reservation.institutionAddress && (
+              <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5">
+                <Building2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {reservation.institutionAddress}
+              </p>
+            )}
+
+            {category === 'caregivers' && reservation.careInstructions && isUpcoming && (
+              <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5 line-clamp-2">
+                <FileText className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {reservation.careInstructions}
+              </p>
+            )}
 
             {isUpcoming && section === 'upcoming' && minutesUntilStart > 0 && startsInLabel && (
               <p className="text-xs text-info mt-2 font-medium">
@@ -118,7 +168,7 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
               </p>
             )}
 
-            {isActive && section === 'active' && (
+            {isActive && section === 'active' && canTrack && (
               <div className="mt-3">
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                   <span>{Math.round(progress)}% completado</span>
@@ -135,19 +185,41 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
               </div>
             )}
 
+            {isActive && section === 'active' && !canTrack && (
+              <div className="mt-3 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                {category === 'caregivers' ? (
+                  <>
+                    <Home className="w-4 h-4 text-primary" />
+                    Cuidado en curso · {durationLabel}
+                  </>
+                ) : (
+                  <>
+                    <Stethoscope className="w-4 h-4 text-primary" />
+                    Cita en curso · {reservation.selectedServiceName ?? 'Servicio'}
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
               <span className="font-bold text-primary">
                 {formatCurrency(reservation.totalPrice, locale)}
               </span>
-              {isCompleted && reservation.summaryDistanceKm != null && (
+              {isCompleted && category === 'walkers' && reservation.summaryDistanceKm != null && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Route className="w-3.5 h-3.5" />
                   {reservation.summaryDistanceKm} km
                 </span>
               )}
+              {isCompleted && category === 'caregivers' && reservation.isOvernight && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Moon className="w-3.5 h-3.5" />
+                  Estadía completada
+                </span>
+              )}
             </div>
 
-            {isActive && section === 'active' && onTrack && trackLabel && (
+            {isActive && section === 'active' && canTrack && onTrack && trackLabel && (
               <Button fullWidth size="md" className="mt-3" onClick={() => onTrack(reservation)}>
                 <Navigation className="w-4 h-4" />
                 {trackLabel}
@@ -158,7 +230,7 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
               <div className="mt-3 p-3 rounded-xl bg-muted/50 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Resumen del paseo
+                    {getReservationSummaryTitle(category)}
                   </p>
                   {onViewDetail && (
                     <span className="text-xs font-medium text-primary flex items-center gap-0.5">
@@ -167,18 +239,48 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Timer className="w-4 h-4 text-primary" />
-                    <span>
-                      {reservation.summaryDurationMinutes ?? reservation.durationMinutes} min
-                    </span>
+
+                {category === 'walkers' && (
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Timer className="w-4 h-4 text-primary" />
+                      <span>
+                        {reservation.summaryDurationMinutes ?? reservation.durationMinutes} min
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      <span>{reservation.summaryDistanceKm ?? '—'} km</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <span>{reservation.summaryDistanceKm ?? '—'} km</span>
+                )}
+
+                {category === 'caregivers' && (
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Home className="w-4 h-4 text-primary" />
+                      <span>{durationLabel}</span>
+                    </div>
+                    {reservation.careInstructions && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {reservation.careInstructions}
+                      </p>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {category === 'veterinary' && (
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="w-4 h-4 text-primary" />
+                      <span>{reservation.selectedServiceName ?? 'Servicio veterinario'}</span>
+                    </div>
+                    {reservation.institutionAddress && (
+                      <p className="text-xs text-muted-foreground">{reservation.institutionAddress}</p>
+                    )}
+                  </div>
+                )}
+
                 {reservation.completedAt && (
                   <p className="text-xs text-muted-foreground">
                     {new Date(reservation.completedAt).toLocaleString(

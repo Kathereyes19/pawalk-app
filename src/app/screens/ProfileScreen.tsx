@@ -34,11 +34,14 @@ import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
 import { ProfileInfoRow } from '../components/profile/ProfileInfoRow';
 import { ProfileSectionCard } from '../components/profile/ProfileSectionCard';
+import { PaymentMethodsSection } from '../components/payments/PaymentMethodsSection';
+import { RemindersSection } from '../components/reminders/RemindersSection';
 import type { UserProfile } from '@/types';
 
 interface ProfileScreenProps {
   onLogout: () => void;
   onNavigateToPets?: () => void;
+  onOpenReminders?: () => void;
 }
 
 type ProfileMode = 'view' | 'edit';
@@ -82,6 +85,7 @@ function buildDefaultProfile(email: string, fullName = ''): UserProfile {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLogout,
   onNavigateToPets,
+  onOpenReminders,
 }) => {
   const { user } = useAuth();
   const { profile, pets, userId, isLoading, setProfile, refreshUserData } = useUserData();
@@ -346,6 +350,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </div>
               )}
             </ProfileSectionCard>
+
+            <PaymentMethodsSection />
+
+            {onOpenReminders && <RemindersSection onOpenReminders={onOpenReminders} />}
 
             <ProfileSectionCard title={t('profile.section.account')}>
               <ProfileInfoRow

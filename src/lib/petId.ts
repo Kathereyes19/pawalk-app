@@ -11,3 +11,7 @@ export function ensurePetId(id?: string): string {
   }
   return createPetId();
 }
+
+export function isValidUuid(id?: string | null): boolean {
+  return Boolean(id && UUID_RE.test(id));
+}

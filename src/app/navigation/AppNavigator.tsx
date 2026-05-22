@@ -14,6 +14,7 @@ import {
   PersonalProfileSetupScreen,
   PetProfileScreen,
   ProfileScreen,
+  RemindersScreen,
   ReservationsScreen,
   SignUpScreen,
   WalkerProfileScreen,
@@ -151,6 +152,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
           <HomeScreen onWalkerClick={handlers.handleWalkerClick} />
         );
 
+      case 'reminders':
+        return <RemindersScreen onBack={handlers.handleBackFromReminders} />;
+
       default:
         return <HomeScreen onWalkerClick={handlers.handleWalkerClick} />;
     }
@@ -170,13 +174,14 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         );
 
       case 'pets':
-        return <PetProfileScreen />;
+        return <PetProfileScreen onOpenReminders={handlers.handleOpenReminders} />;
 
       case 'profile':
         return (
           <ProfileScreen
             onLogout={handlers.handleLogout}
             onNavigateToPets={() => handlers.handleTabChange('pets')}
+            onOpenReminders={handlers.handleOpenReminders}
           />
         );
     }

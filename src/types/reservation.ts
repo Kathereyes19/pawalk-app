@@ -1,3 +1,6 @@
+import type { HomeServiceCategory } from './homeDiscovery';
+import type { WalkerServiceType } from './walker';
+
 export type ReservationStatus = 'scheduled' | 'active' | 'completed' | 'cancelled';
 
 export interface ReservationPet {
@@ -20,6 +23,13 @@ export interface Reservation {
   scheduledDate: string;
   scheduledTime: string;
   durationMinutes: number;
+  serviceCategory: HomeServiceCategory;
+  serviceType?: WalkerServiceType | null;
+  selectedServiceId?: string | null;
+  selectedServiceName?: string | null;
+  careInstructions?: string | null;
+  isOvernight?: boolean;
+  institutionAddress?: string | null;
   status: ReservationStatus;
   servicePrice: number;
   platformFee: number;
@@ -50,6 +60,13 @@ export interface ReservationRow {
   scheduled_date: string;
   scheduled_time: string;
   duration_minutes: number;
+  service_category: HomeServiceCategory | null;
+  service_type: WalkerServiceType | null;
+  selected_service_id: string | null;
+  selected_service_name: string | null;
+  care_instructions: string | null;
+  is_overnight: boolean | null;
+  institution_address: string | null;
   status: ReservationStatus;
   service_price: number;
   platform_fee: number;

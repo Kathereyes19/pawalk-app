@@ -5,6 +5,8 @@ import { useReservations } from '@/contexts/ReservationsContext';
 import { markOnboardingComplete, upsertProfile } from '@/features/profile';
 import { replacePetsForUser } from '@/features/pets';
 import { reservationToWalker, resolveEffectiveStatus } from '@/features/reservations';
+import { getReservationCategory } from '@/lib/providers/reservationCategory';
+import { supportsLiveTracking } from '@/lib/providers/serviceExperience';
 import {
   AUTH_ENTRY_SCREEN,
   loadUserBundle,
@@ -19,7 +21,7 @@ import {
   type AppScreen,
   type BottomNavTab,
 } from '@/navigation';
-import type { BookingData, Pet, Reservation, UserProfile, Walker } from '@/types';
+import type { BookingData, CheckoutPaymentSelection, Pet, Reservation, UserProfile, Walker } from '@/types';
 
 export function useAppNavigation() {
   const { session, isLoading: authLoading, signOut } = useAuth();
@@ -222,23 +224,44 @@ export function useAppNavigation() {
     setCurrentScreen('checkout');
   }, []);
 
-  const handleCheckoutConfirm = useCallback(async () => {
-    setIsNavigating(true);
+  const handleCheckoutConfirm = useCallback(
+    async (selection: CheckoutPaymentSelection): Promise<{ error: string | null }> => {
+      setIsNavigating(true);
+      try {
+        if (!selectedWalker || !bookingData) {
+          return { error: 'Faltan datos de la reserva. Vuelve atrás e intenta de nuevo.' };
+        }
+        if (!resolvedUserId) {
+          return { error: 'Inicia sesión para confirmar la reserva.' };
+        }
 
-    if (selectedWalker && bookingData && resolvedUserId) {
-      await bookReservation({
-        walker: selectedWalker,
-        bookingData,
-        pets: bookingData.pets,
-        petId: bookingData.pets?.[0]?.id ?? null,
-        petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
-        paymentMethod: 'card',
-      });
-    }
+        const { error } = await bookReservation({
+          walker: selectedWalker,
+          bookingData,
+          pets: bookingData.pets,
+          petId: bookingData.pets?.[0]?.id ?? null,
+          petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
+          paymentMethod: selection.paymentLabel,
+          paymentMethodId: selection.paymentMethodId,
+        });
 
-    setIsNavigating(false);
-    setCurrentScreen('confirmed');
-  }, [selectedWalker, bookingData, resolvedUserId, bookReservation]);
+        if (error) {
+          return { error };
+        }
+
+        setCurrentScreen('confirmed');
+        return { error: null };
+      } catch (err) {
+        return {
+          error:
+            err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
+        };
+      } finally {
+        setIsNavigating(false);
+      }
+    },
+    [selectedWalker, bookingData, resolvedUserId, bookReservation]
+  );
 
   const handleViewWalkDetail = useCallback((reservation: Reservation) => {
     setWalkDetailReservation(reservation);
@@ -251,15 +274,26 @@ export function useAppNavigation() {
     setActiveTab('bookings');
   }, []);
 
+  const handleOpenReminders = useCallback(() => {
+    setCurrentScreen('reminders');
+  }, []);
+
+  const handleBackFromReminders = useCallback(() => {
+    setCurrentScreen(POST_AUTH_HOME);
+  }, []);
+
   const handleViewReservations = useCallback(() => {
     setActiveTab('bookings');
     setCurrentScreen(POST_AUTH_HOME);
+    setBookingData(null);
+    setSelectedWalker(null);
   }, []);
 
   const handleViewTracking = useCallback(
     (reservation: Reservation) => {
       const effective = resolveEffectiveStatus(reservation);
       if (effective !== 'active') return;
+      if (!supportsLiveTracking(getReservationCategory(reservation))) return;
 
       setSelectedWalker(reservationToWalker(reservation));
       setActiveReservation(reservation);
@@ -287,6 +321,8 @@ export function useAppNavigation() {
     setCurrentScreen(POST_AUTH_HOME);
     setActiveTab('home');
     setActiveReservation(null);
+    setBookingData(null);
+    setSelectedWalker(null);
   }, []);
 
   const handleTabChange = useCallback(
@@ -355,6 +391,8 @@ export function useAppNavigation() {
       handleViewTracking,
       handleViewWalkDetail,
       handleBackFromWalkDetail,
+      handleOpenReminders,
+      handleBackFromReminders,
       handleWalkComplete,
       handleBackFromTracking,
       handleBackHome,

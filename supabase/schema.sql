@@ -128,3 +128,69 @@ alter table public.bookings add column if not exists pet_names text[] not null d
 alter table public.bookings add column if not exists pet_avatars text[] default '{}';
 alter table public.bookings add column if not exists summary_pace_kmh numeric;
 alter table public.bookings add column if not exists summary_calories int;
+
+-- Service category columns (walk / care / veterinary)
+alter table public.bookings add column if not exists service_category text default 'walkers'
+  check (service_category in ('walkers', 'caregivers', 'veterinary'));
+alter table public.bookings add column if not exists service_type text;
+alter table public.bookings add column if not exists selected_service_id text;
+alter table public.bookings add column if not exists selected_service_name text;
+alter table public.bookings add column if not exists care_instructions text;
+alter table public.bookings add column if not exists is_overnight boolean default false;
+alter table public.bookings add column if not exists institution_address text;
+
+-- Saved payment methods (tokenized metadata only — never store full PAN/CVV)
+create table if not exists public.payment_methods (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  brand text not null check (brand in ('visa', 'mastercard', 'amex', 'unknown')),
+  last4 text not null check (char_length(last4) = 4),
+  exp_month int not null check (exp_month between 1 and 12),
+  exp_year int not null check (exp_year >= 2020),
+  cardholder_name text not null,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists payment_methods_user_id_idx on public.payment_methods (user_id);
+create unique index if not exists payment_methods_one_default_per_user
+  on public.payment_methods (user_id)
+  where is_default;
+
+alter table public.payment_methods enable row level security;
+
+create policy "Users can manage own payment methods"
+  on public.payment_methods for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Pet care reminders
+create table if not exists public.pet_care_reminders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  pet_id uuid references public.pets (id) on delete set null,
+  pet_name text,
+  title text not null,
+  category text not null check (
+    category in ('vaccination', 'medication', 'deworming', 'walks', 'feeding', 'grooming', 'vet_visit')
+  ),
+  notes text,
+  due_date date not null,
+  due_time time not null default '09:00',
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  notified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists pet_care_reminders_user_id_idx on public.pet_care_reminders (user_id);
+create index if not exists pet_care_reminders_due_idx on public.pet_care_reminders (user_id, due_date, due_time);
+
+alter table public.pet_care_reminders enable row level security;
+
+create policy "Users can manage own pet care reminders"
+  on public.pet_care_reminders for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

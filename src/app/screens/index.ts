@@ -19,3 +19,4 @@ export { CompletedWalkDetailScreen } from './CompletedWalkDetailScreen';
 export { NotificationsScreen } from './NotificationsScreen';
 export { ProfileScreen } from './ProfileScreen';
 export { ReservationsScreen } from './ReservationsScreen';
+export { RemindersScreen } from './RemindersScreen';
