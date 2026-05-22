@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { IconButton } from '../components/IconButton';
+import { TermsAcceptanceCheckbox } from '../components/booking/TermsAcceptanceCheckbox';
 
 interface BookingScreenProps {
   walker: any;
@@ -451,38 +452,14 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                   </AnimatePresence>
                 </div>
 
-                <motion.label
-                  className={`flex items-start gap-3 cursor-pointer group p-3 rounded-xl transition-all ${
-                    acceptedTerms ? 'bg-success/10' : 'bg-muted/50 hover:bg-muted'
-                  }`}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <button
-                    type="button"
-                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                      acceptedTerms
-                        ? 'border-success bg-success shadow-sm'
-                        : 'border-border group-hover:border-primary/50'
-                    }`}
-                    onClick={() => {
-                      setAcceptedTerms(!acceptedTerms);
-                      setValidationError('');
-                    }}
-                  >
-                    {acceptedTerms && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 500 }}
-                      >
-                        <Check className="w-4 h-4 text-white" />
-                      </motion.div>
-                    )}
-                  </button>
-                  <span className="text-sm leading-relaxed font-medium">
-                    {t('booking.accept')}
-                  </span>
-                </motion.label>
+                <TermsAcceptanceCheckbox
+                  checked={acceptedTerms}
+                  onChange={(value) => {
+                    setAcceptedTerms(value);
+                    setValidationError('');
+                  }}
+                  label={t('booking.accept')}
+                />
               </Card>
             </motion.div>
           )}
