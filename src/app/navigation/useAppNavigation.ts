@@ -10,11 +10,13 @@ import { supportsLiveTracking } from '@/lib/providers/serviceExperience';
 import {
   AUTH_ENTRY_SCREEN,
   isAuthEntryScreen,
+  loadUserBundle,
   requiresAuth,
   resolveAuthenticatedScreen,
 } from '@/features/user';
+import { waitForAuthSession } from '@/features/auth';
 import { clearPendingOnboarding, setPendingOnboarding } from '@/lib/onboardingSession';
-import { resolveUserId } from '@/lib/mockUser';
+import { getMockUserId, resolveUserId } from '@/lib/mockUser';
 import {
   INITIAL_SCREEN,
   POST_AUTH_HOME,
@@ -46,12 +48,15 @@ export function useAppNavigation() {
   const [walkDetailReservation, setWalkDetailReservation] = useState<Reservation | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
+  /** Set immediately on login so guards see auth before Supabase session propagates */
+  const [confirmedUserId, setConfirmedUserId] = useState<string | null>(() => getMockUserId());
   const hasBootstrapped = useRef(false);
 
-  const resolvedUserId = userId ?? resolveUserId(session?.user?.id ?? null);
+  const resolvedUserId =
+    userId ?? confirmedUserId ?? resolveUserId(session?.user?.id ?? null);
   const isAppReady =
     !authLoading && (!resolvedUserId || !userDataLoading);
-  const isAuthenticated = Boolean(session || resolvedUserId);
+  const isAuthenticated = Boolean(resolvedUserId || session);
 
   const applyBundleAndNavigate = useCallback(
     async (uid: string) => {
@@ -59,11 +64,23 @@ export function useAppNavigation() {
       setProfile(bundle.profile);
       setPets(bundle.pets);
       setOnboardingCompleted(bundle.onboardingCompleted);
-      setCurrentScreen(resolveAuthenticatedScreen(bundle));
+
+      const destination = bundle.onboardingCompleted
+        ? POST_AUTH_HOME
+        : resolveAuthenticatedScreen(bundle);
+      setCurrentScreen(destination);
       return bundle;
     },
     [setProfile, setPets, setOnboardingCompleted]
   );
+
+  /** Keep confirmed user id in sync when Supabase session restores */
+  useEffect(() => {
+    const uid = resolveUserId(session?.user?.id ?? null);
+    if (uid) {
+      setConfirmedUserId(uid);
+    }
+  }, [session?.user?.id]);
 
   /** One-time routing after auth + user data are ready */
   useEffect(() => {
@@ -78,13 +95,13 @@ export function useAppNavigation() {
     void applyBundleAndNavigate(resolvedUserId);
   }, [isAppReady, isAuthenticated, resolvedUserId, applyBundleAndNavigate]);
 
-  /** Route guard */
+  /** Route guard — skip while post-login navigation is in flight */
   useEffect(() => {
-    if (!isAppReady) return;
+    if (!isAppReady || isNavigating) return;
     if (!isAuthenticated && requiresAuth(currentScreen)) {
       setCurrentScreen(AUTH_ENTRY_SCREEN);
     }
-  }, [isAppReady, isAuthenticated, currentScreen]);
+  }, [isAppReady, isNavigating, isAuthenticated, currentScreen]);
 
   /** Session restore: send completed users to home */
   useEffect(() => {
@@ -112,6 +129,7 @@ export function useAppNavigation() {
 
     hasBootstrapped.current = true;
     setWelcomeMode('none');
+    setConfirmedUserId(uid);
 
     void (async () => {
       setIsNavigating(true);
@@ -163,12 +181,18 @@ export function useAppNavigation() {
       setWelcomeMode('none');
       hasBootstrapped.current = true;
 
-      const uid = resolveUserId(loginUserId ?? session?.user?.id ?? resolvedUserId);
+      let uid = resolveUserId(loginUserId ?? session?.user?.id ?? confirmedUserId);
+      if (!uid) {
+        const sessionUserId = await waitForAuthSession();
+        uid = resolveUserId(sessionUserId);
+      }
+
       if (!uid) {
         setCurrentScreen(AUTH_ENTRY_SCREEN);
         return;
       }
 
+      setConfirmedUserId(uid);
       setIsNavigating(true);
       try {
         await applyBundleAndNavigate(uid);
@@ -177,7 +201,7 @@ export function useAppNavigation() {
         setIsNavigating(false);
       }
     },
-    [session?.user?.id, resolvedUserId, applyBundleAndNavigate]
+    [session?.user?.id, confirmedUserId, applyBundleAndNavigate]
   );
 
   const handleSignUp = useCallback(() => {
@@ -229,6 +253,7 @@ export function useAppNavigation() {
     await signOut();
     clearPendingOnboarding();
     setWelcomeMode('none');
+    setConfirmedUserId(null);
     setProfile(null);
     setPets([]);
     setOnboardingCompleted(false);
@@ -236,7 +261,7 @@ export function useAppNavigation() {
     setActiveReservation(null);
     setBookingData(null);
     setSelectedWalker(null);
-    hasBootstrapped.current = true;
+    hasBootstrapped.current = false;
     setCurrentScreen(AUTH_ENTRY_SCREEN);
   }, [signOut, setProfile, setPets, setOnboardingCompleted]);
 

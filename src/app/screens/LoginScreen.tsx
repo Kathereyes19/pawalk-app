@@ -52,18 +52,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, onLogin, onSig
 
     const userId = resolveUserId(result.data?.userId ?? null);
 
-    const finishLogin = async () => {
-      setIsLoading(false);
-      setShowSuccess(true);
-      await new Promise((resolve) => window.setTimeout(resolve, 700));
-      try {
-        await onLogin(userId);
-      } finally {
-        setShowSuccess(false);
-      }
-    };
-
-    await finishLogin();
+    setIsLoading(false);
+    setShowSuccess(true);
+    try {
+      await onLogin(userId);
+    } finally {
+      setShowSuccess(false);
+    }
   };
 
   return (

@@ -2,6 +2,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import {
   clearMockUserId,
+  getMockUserId,
   isMockEmailRegistered,
   registerMockEmail,
 } from '@/lib/mockUser';
@@ -90,4 +91,32 @@ export async function signOut(): Promise<void> {
   if (supabase) {
     await supabase.auth.signOut();
   }
+}
+
+/** Wait for Supabase session after sign-in before routing (avoids auth guard race). */
+export async function waitForAuthSession(timeoutMs = 5000): Promise<string | null> {
+  if (!isSupabaseConfigured()) {
+    return getMockUserId();
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return getMockUserId();
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      return session.user.id;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user?.id ?? null;
 }

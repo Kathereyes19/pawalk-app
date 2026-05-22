@@ -2,6 +2,7 @@ export {
   signInWithEmail,
   signUpWithEmail,
   signOut,
+  waitForAuthSession,
 } from './authService';
 export {
   isDuplicateEmailError,
