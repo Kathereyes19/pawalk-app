@@ -1,10 +1,12 @@
 import { DEFAULT_USER_EMOJI } from './constants';
 import { getInitials } from './initials';
+import { isEmojiAvatar, resolveAvatarImageUrl } from './imageUrl';
 import type { AvatarDisplayProps } from './types';
 
 export interface UserAvatarInput {
   fullName?: string | null;
   avatar?: string | null;
+  avatarUrl?: string | null;
 }
 
 export function getUserAvatarProps(
@@ -12,16 +14,21 @@ export function getUserAvatarProps(
   _userId?: string
 ): AvatarDisplayProps {
   const name = input.fullName?.trim();
-  const initials = getInitials(name);
-  const storedEmoji =
-    input.avatar && input.avatar.length <= 4 && !input.avatar.startsWith('data:')
-      ? input.avatar
-      : undefined;
+  const alt = name ?? 'User';
 
-  return {
-    initials: initials !== '?' ? initials : undefined,
-    emoji: initials === '?' ? storedEmoji ?? DEFAULT_USER_EMOJI : undefined,
-    alt: name ?? 'User',
-    variant: 'user',
-  };
+  const src = resolveAvatarImageUrl(input.avatarUrl, input.avatar);
+  if (src) {
+    return { src, alt, variant: 'user' };
+  }
+
+  if (isEmojiAvatar(input.avatar)) {
+    return { emoji: input.avatar!, alt, variant: 'user' };
+  }
+
+  const initials = getInitials(name);
+  if (initials !== '?') {
+    return { initials, alt, variant: 'user' };
+  }
+
+  return { emoji: DEFAULT_USER_EMOJI, alt, variant: 'user' };
 }

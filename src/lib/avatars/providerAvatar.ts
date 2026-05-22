@@ -2,9 +2,11 @@ import type { HomeServiceCategory } from '@/types/homeDiscovery';
 import type { Reservation } from '@/types/reservation';
 import type { Walker } from '@/types/walker';
 import { PROVIDER_CATEGORY_EMOJI } from './constants';
+import { isEmojiAvatar, resolveAvatarImageUrl } from './imageUrl';
 import type { AvatarDisplayProps, AvatarVariant } from './types';
 
 export interface ProviderAvatarInput {
+  avatarUrl?: string | null;
   avatar?: string | null;
   id?: string | null;
   name?: string | null;
@@ -28,13 +30,8 @@ function resolveProviderEmoji(
   serviceCategory?: HomeServiceCategory | string | null,
   storedAvatar?: string | null
 ): string {
-  if (
-    storedAvatar &&
-    storedAvatar.length <= 4 &&
-    !storedAvatar.startsWith('http') &&
-    !storedAvatar.startsWith('data:')
-  ) {
-    return storedAvatar;
+  if (isEmojiAvatar(storedAvatar)) {
+    return storedAvatar!;
   }
 
   const category = (serviceCategory ?? 'walkers') as HomeServiceCategory;
@@ -43,16 +40,23 @@ function resolveProviderEmoji(
 
 export function getProviderAvatarProps(input: ProviderAvatarInput): AvatarDisplayProps {
   const variant = providerVariant(input.serviceCategory);
+  const alt = input.name ?? 'Provider';
+
+  const src = resolveAvatarImageUrl(input.avatarUrl, input.avatar);
+  if (src) {
+    return { src, alt, variant };
+  }
 
   return {
     emoji: resolveProviderEmoji(input.serviceCategory, input.avatar),
-    alt: input.name ?? 'Provider',
+    alt,
     variant,
   };
 }
 
 export function getWalkerAvatarProps(walker: Walker): AvatarDisplayProps {
   return getProviderAvatarProps({
+    avatarUrl: walker.avatarUrl,
     avatar: walker.avatar,
     id: walker.id,
     name: walker.name,
@@ -75,13 +79,13 @@ export function getReviewAuthorAvatarProps(
   authorName: string,
   authorAvatar?: string | null
 ): AvatarDisplayProps {
-  const storedEmoji =
-    authorAvatar && authorAvatar.length <= 4 && !authorAvatar.startsWith('http')
-      ? authorAvatar
-      : undefined;
+  const src = resolveAvatarImageUrl(authorAvatar);
+  if (src) {
+    return { src, alt: authorName, variant: 'user' };
+  }
 
   return {
-    emoji: storedEmoji ?? '👤',
+    emoji: isEmojiAvatar(authorAvatar) ? authorAvatar! : '👤',
     alt: authorName,
     variant: 'user',
   };

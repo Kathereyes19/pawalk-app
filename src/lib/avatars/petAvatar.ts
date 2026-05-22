@@ -1,4 +1,5 @@
 import { DEFAULT_PET_EMOJI, PET_SPECIES_EMOJI } from './constants';
+import { isEmojiAvatar, isDirectImageUrl, resolveAvatarImageUrl } from './imageUrl';
 import type { AvatarDisplayProps } from './types';
 
 export interface PetAvatarInput {
@@ -11,8 +12,8 @@ export interface PetAvatarInput {
 function resolvePetEmoji(input: PetAvatarInput): string {
   const { avatar, species } = input;
 
-  if (avatar && avatar.length <= 4 && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-    return avatar;
+  if (isEmojiAvatar(avatar)) {
+    return avatar!;
   }
 
   if (species) {
@@ -30,13 +31,19 @@ export function getPetAvatarProps(input: PetAvatarInput | string): AvatarDisplay
     return getPetAvatarProps({ avatar: input });
   }
 
+  const alt = input.name ?? 'Pet';
+  const src = resolveAvatarImageUrl(input.avatar);
+  if (src) {
+    return { src, alt, variant: 'pet' };
+  }
+
   return {
     emoji: resolvePetEmoji(input),
-    alt: input.name ?? 'Pet',
+    alt,
     variant: 'pet',
   };
 }
 
 export function isImageAvatar(avatar: string): boolean {
-  return avatar.startsWith('http') || avatar.startsWith('data:') || avatar.startsWith('blob:');
+  return isDirectImageUrl(avatar);
 }

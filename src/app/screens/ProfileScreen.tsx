@@ -126,6 +126,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (!displayProfile) return { emoji: '👤', alt: 'User', variant: 'user' as const };
     return getUserAvatarProps(
       {
+        avatarUrl: displayProfile.avatarUrl,
         avatar: displayProfile.avatar,
         fullName: displayProfile.fullName,
       },
@@ -136,7 +137,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const draftAvatarProps = useMemo(() => {
     if (!draft) return { emoji: '👤', alt: 'User', variant: 'user' as const };
     return getUserAvatarProps(
-      { avatar: draft.avatar, fullName: draft.fullName },
+      {
+        avatarUrl: draft.avatarUrl,
+        avatar: draft.avatar,
+        fullName: draft.fullName,
+      },
       userId ?? undefined
     );
   }, [draft, userId]);

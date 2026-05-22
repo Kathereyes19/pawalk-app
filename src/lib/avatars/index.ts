@@ -6,6 +6,7 @@ export {
   MARKETPLACE_CATEGORY_EMOJI,
 } from './constants';
 
+export { isDirectImageUrl, isEmojiAvatar, resolveAvatarImageUrl } from './imageUrl';
 export { getUserAvatarProps, type UserAvatarInput } from './userAvatar';
 export { getPetAvatarProps, isImageAvatar, type PetAvatarInput } from './petAvatar';
 export {

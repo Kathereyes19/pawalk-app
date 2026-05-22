@@ -179,6 +179,7 @@ export const PersonalProfileSetupScreen: React.FC<PersonalProfileSetupScreenProp
                 <div className="flex items-center gap-4 mb-4">
                   <Avatar
                     {...getUserAvatarProps({
+                      avatarUrl: profileData.avatarUrl,
                       avatar: profileData.avatar,
                       fullName: profileData.fullName,
                     })}

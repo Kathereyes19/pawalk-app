@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '../utils/cn';
 import type { AvatarVariant } from '@/lib/avatars';
 
 interface AvatarProps {
+  src?: string;
   emoji?: string;
   initials?: string;
   alt?: string;
@@ -30,6 +31,7 @@ const variantClasses: Record<AvatarVariant, string> = {
 };
 
 export const Avatar: React.FC<AvatarProps> = ({
+  src,
   emoji,
   initials,
   alt = '',
@@ -37,23 +39,50 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   className,
 }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const sizes = sizeClasses[size];
-  const showInitials = Boolean(initials);
-  const showEmoji = !showInitials && Boolean(emoji);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [src]);
+
+  const showImage = Boolean(src) && !failed;
+  const showInitials = !showImage && Boolean(initials);
+  const showEmoji = !showImage && !showInitials && Boolean(emoji);
 
   return (
     <div
       role="img"
       aria-label={alt}
       className={cn(
-        'flex items-center justify-center shrink-0 overflow-hidden shadow-sm font-semibold select-none aspect-square rounded-full',
+        'relative flex items-center justify-center shrink-0 overflow-hidden shadow-sm font-semibold select-none aspect-square rounded-full',
         sizes.container,
-        variantClasses[variant],
+        !showImage && variantClasses[variant],
         className,
-        // Always enforce circle — overrides any rounded-* passed via className
         'rounded-full'
       )}
     >
+      {showImage && (
+        <>
+          {!loaded && (
+            <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/70 to-muted" />
+          )}
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
+            className={cn(
+              'absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-300',
+              loaded ? 'opacity-100' : 'opacity-0'
+            )}
+          />
+        </>
+      )}
       {showInitials && (
         <span className={cn('leading-none tracking-tight', sizes.initials)}>{initials}</span>
       )}
