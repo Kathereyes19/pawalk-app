@@ -21,7 +21,7 @@ import {
   type AppScreen,
   type BottomNavTab,
 } from '@/navigation';
-import type { BookingData, Pet, Reservation, UserProfile, Walker } from '@/types';
+import type { BookingData, CheckoutPaymentSelection, Pet, Reservation, UserProfile, Walker } from '@/types';
 
 export function useAppNavigation() {
   const { session, isLoading: authLoading, signOut } = useAuth();
@@ -224,40 +224,44 @@ export function useAppNavigation() {
     setCurrentScreen('checkout');
   }, []);
 
-  const handleCheckoutConfirm = useCallback(async (): Promise<{ error: string | null }> => {
-    setIsNavigating(true);
-    try {
-      if (!selectedWalker || !bookingData) {
-        return { error: 'Faltan datos de la reserva. Vuelve atrás e intenta de nuevo.' };
-      }
-      if (!resolvedUserId) {
-        return { error: 'Inicia sesión para confirmar la reserva.' };
-      }
+  const handleCheckoutConfirm = useCallback(
+    async (selection: CheckoutPaymentSelection): Promise<{ error: string | null }> => {
+      setIsNavigating(true);
+      try {
+        if (!selectedWalker || !bookingData) {
+          return { error: 'Faltan datos de la reserva. Vuelve atrás e intenta de nuevo.' };
+        }
+        if (!resolvedUserId) {
+          return { error: 'Inicia sesión para confirmar la reserva.' };
+        }
 
-      const { error } = await bookReservation({
-        walker: selectedWalker,
-        bookingData,
-        pets: bookingData.pets,
-        petId: bookingData.pets?.[0]?.id ?? null,
-        petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
-        paymentMethod: 'card',
-      });
+        const { error } = await bookReservation({
+          walker: selectedWalker,
+          bookingData,
+          pets: bookingData.pets,
+          petId: bookingData.pets?.[0]?.id ?? null,
+          petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
+          paymentMethod: selection.paymentLabel,
+          paymentMethodId: selection.paymentMethodId,
+        });
 
-      if (error) {
-        return { error };
+        if (error) {
+          return { error };
+        }
+
+        setCurrentScreen('confirmed');
+        return { error: null };
+      } catch (err) {
+        return {
+          error:
+            err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
+        };
+      } finally {
+        setIsNavigating(false);
       }
-
-      setCurrentScreen('confirmed');
-      return { error: null };
-    } catch (err) {
-      return {
-        error:
-          err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
-      };
-    } finally {
-      setIsNavigating(false);
-    }
-  }, [selectedWalker, bookingData, resolvedUserId, bookReservation]);
+    },
+    [selectedWalker, bookingData, resolvedUserId, bookReservation]
+  );
 
   const handleViewWalkDetail = useCallback((reservation: Reservation) => {
     setWalkDetailReservation(reservation);

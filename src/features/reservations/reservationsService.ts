@@ -411,6 +411,7 @@ export interface CreateReservationInput {
   petId?: string | null;
   petName?: string;
   paymentMethod?: string;
+  paymentMethodId?: string;
 }
 
 function resolveReservationPets(input: CreateReservationInput): ReservationPet[] {

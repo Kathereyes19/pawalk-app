@@ -42,6 +42,16 @@ export type {
   ReservationPet,
 } from './reservation';
 
+export type {
+  PaymentMethod,
+  PaymentMethodRow,
+  PaymentCardBrand,
+  AddPaymentMethodInput,
+  UpdatePaymentMethodInput,
+  CheckoutPaymentType,
+  CheckoutPaymentSelection,
+} from './paymentMethod';
+
 /** @deprecated import from homeDiscovery */
 export type { WalkerFilterState } from './homeDiscovery';
 export { DEFAULT_WALKER_FILTERS } from './homeDiscovery';

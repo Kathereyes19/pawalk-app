@@ -3,6 +3,7 @@ import { ThemeProvider } from 'next-themes';
 import { LanguageProvider } from '@/app/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { UserDataProvider } from '@/contexts/UserDataContext';
+import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
 import { ReservationsProvider } from '@/contexts/ReservationsContext';
 
 interface AppProvidersProps {
@@ -19,7 +20,9 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
       <LanguageProvider>
         <AuthProvider>
           <UserDataProvider>
-            <ReservationsProvider>{children}</ReservationsProvider>
+            <PaymentMethodsProvider>
+              <ReservationsProvider>{children}</ReservationsProvider>
+            </PaymentMethodsProvider>
           </UserDataProvider>
         </AuthProvider>
       </LanguageProvider>

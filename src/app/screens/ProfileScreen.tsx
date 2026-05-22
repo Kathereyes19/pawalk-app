@@ -34,6 +34,7 @@ import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
 import { ProfileInfoRow } from '../components/profile/ProfileInfoRow';
 import { ProfileSectionCard } from '../components/profile/ProfileSectionCard';
+import { PaymentMethodsSection } from '../components/payments/PaymentMethodsSection';
 import type { UserProfile } from '@/types';
 
 interface ProfileScreenProps {
@@ -346,6 +347,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </div>
               )}
             </ProfileSectionCard>
+
+            <PaymentMethodsSection />
 
             <ProfileSectionCard title={t('profile.section.account')}>
               <ProfileInfoRow

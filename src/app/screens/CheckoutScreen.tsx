@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, CreditCard, Building2, CheckCircle2, Shield, Lock, Info, Calendar, Clock, Sparkles, Check, AlertCircle, PawPrint } from 'lucide-react';
+import { ArrowLeft, CreditCard, Building2, CheckCircle2, Shield, Lock, Info, Calendar, Clock, Check, AlertCircle, PawPrint, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { usePaymentMethods } from '@/contexts/PaymentMethodsContext';
 import {
   calculateCategoryBookingTotals,
   formatCareDurationLabel,
@@ -9,18 +10,21 @@ import {
   type VetBookableServiceId,
 } from '@/lib/providers/serviceExperience';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { maskCardNumber } from '@/lib/paymentCardUtils';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconButton } from '../components/IconButton';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
-import type { Walker, BookingData } from '@/types';
+import { PaymentMethodCard } from '../components/payments/PaymentMethodCard';
+import { AddPaymentMethodSheet } from '../components/payments/AddPaymentMethodSheet';
+import type { Walker, BookingData, CheckoutPaymentSelection, CheckoutPaymentType } from '@/types';
 
 interface CheckoutScreenProps {
   walker: Walker;
   bookingData: BookingData;
   onBack: () => void;
-  onConfirm: () => Promise<{ error?: string | null } | void>;
+  onConfirm: (selection: CheckoutPaymentSelection) => Promise<{ error?: string | null } | void>;
 }
 
 export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
@@ -30,11 +34,40 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   onConfirm,
 }) => {
   const { t } = useLanguage();
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pse' | 'nequi'>('card');
+  const {
+    paymentMethods,
+    defaultPaymentMethod,
+    isLoading: paymentMethodsLoading,
+    addPaymentMethod,
+  } = usePaymentMethods();
+
+  const [paymentType, setPaymentType] = useState<CheckoutPaymentType>('card');
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [showAllCards, setShowAllCards] = useState(false);
+  const [addCardOpen, setAddCardOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (defaultPaymentMethod) {
+      setSelectedCardId(defaultPaymentMethod.id);
+    }
+  }, [defaultPaymentMethod?.id, paymentMethods.length]);
+
+  const selectedCard = useMemo(
+    () => paymentMethods.find((method) => method.id === selectedCardId) ?? defaultPaymentMethod,
+    [paymentMethods, selectedCardId, defaultPaymentMethod]
+  );
+
+  const visibleCards = useMemo(() => {
+    if (showAllCards || paymentMethods.length <= 2) return paymentMethods;
+    const prioritized = selectedCard
+      ? [selectedCard, ...paymentMethods.filter((method) => method.id !== selectedCard.id)]
+      : paymentMethods;
+    return prioritized.slice(0, 2);
+  }, [paymentMethods, selectedCard, showAllCards]);
 
   const petCount = Math.max(1, bookingData.pets?.length ?? 1);
   const category = bookingData.serviceCategory ?? getWalkerHomeCategory(walker);
@@ -65,22 +98,35 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     bookingData.durationLabel ??
     formatCareDurationLabel(bookingData.duration ?? 60, bookingData.isOvernight);
 
-  const savedCards = [
-    {
-      id: '1',
-      last4: '4242',
-      brand: 'Visa',
-      icon: '💳',
-      color: 'from-blue-500 to-blue-600',
-    },
-  ];
-
   const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+  const buildPaymentSelection = (): CheckoutPaymentSelection | null => {
+    if (paymentType === 'pse') {
+      return { type: 'pse', paymentLabel: 'PSE' };
+    }
+    if (paymentType === 'nequi') {
+      return { type: 'nequi', paymentLabel: 'Nequi' };
+    }
+    const card = selectedCard ?? defaultPaymentMethod;
+    if (!card) return null;
+    return {
+      type: 'card',
+      paymentMethodId: card.id,
+      paymentLabel: maskCardNumber(card.last4, card.brand),
+    };
+  };
 
   const handlePayment = async () => {
     if (isProcessing) return;
 
     setPaymentError(null);
+
+    const selection = buildPaymentSelection();
+    if (!selection) {
+      setPaymentError('Agrega una tarjeta o elige otro método de pago.');
+      return;
+    }
+
     setIsProcessing(true);
     setProcessingStage(0);
 
@@ -93,7 +139,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       setProcessingStage(3);
       await delay(800);
 
-      const result = await onConfirm();
+      const result = await onConfirm(selection);
       if (result?.error) {
         setPaymentError(result.error);
       }
@@ -104,6 +150,22 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleAddCard = async (payload: {
+    cardholderName: string;
+    cardNumber: string;
+    expMonth: string;
+    expYear: string;
+    cvv: string;
+    setAsDefault?: boolean;
+  }) => {
+    const result = await addPaymentMethod({ ...payload, setAsDefault: true });
+    if (!result.error) {
+      setPaymentType('card');
+      setAddCardOpen(false);
+    }
+    return result;
   };
 
   const processingStages = [
@@ -289,49 +351,82 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
           </h2>
 
           <div className="space-y-2.5">
-            {/* Saved Card */}
-            {savedCards.map((card) => (
-              <motion.div
-                key={card.id}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-              >
-                <Card
-                  onClick={() => setPaymentMethod('card')}
-                  hoverable
-                  className={`cursor-pointer transition-all ${
-                    paymentMethod === 'card'
-                      ? 'border-2 border-primary bg-primary/5 shadow-lg'
-                      : 'border border-border'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-14 h-14 bg-gradient-to-br ${card.color} rounded-2xl flex items-center justify-center shadow-md`}>
-                      <CreditCard className="w-7 h-7 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold">{card.brand} •••• {card.last4}</p>
-                        <Badge className="bg-success/10 text-success text-xs px-1.5 py-0.5">
-                          Guardada
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Tarjeta de crédito predeterminada</p>
-                    </div>
-                    {paymentMethod === 'card' && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 500 }}
-                      >
-                        <CheckCircle2 className="w-6 h-6 text-primary fill-primary" />
-                      </motion.div>
-                    )}
+            {/* Saved cards */}
+            {paymentMethodsLoading ? (
+              <Card className="border border-border">
+                <div className="flex items-center gap-3 py-2">
+                  <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
+                    <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
                   </div>
-                </Card>
-              </motion.div>
-            ))}
+                </div>
+              </Card>
+            ) : paymentMethods.length > 0 ? (
+              <>
+                {visibleCards.map((card, index) => (
+                  <motion.div
+                    key={card.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <PaymentMethodCard
+                      method={card}
+                      selectable
+                      selected={paymentType === 'card' && selectedCardId === card.id}
+                      onSelect={() => {
+                        setPaymentType('card');
+                        setSelectedCardId(card.id);
+                      }}
+                    />
+                  </motion.div>
+                ))}
+
+                {paymentMethods.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllCards((value) => !value)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-primary"
+                  >
+                    {showAllCards ? (
+                      <>
+                        <ChevronUp className="w-4 h-4" />
+                        Ver menos tarjetas
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-4 h-4" />
+                        Ver {paymentMethods.length - 2} tarjeta{paymentMethods.length - 2 > 1 ? 's' : ''} más
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setAddCardOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-primary/30 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar tarjeta
+                </button>
+              </>
+            ) : (
+              <Card className="border-2 border-dashed border-primary/20 bg-primary/5">
+                <div className="text-center py-4">
+                  <CreditCard className="w-10 h-10 text-primary mx-auto mb-2" />
+                  <p className="font-semibold text-sm mb-1">Sin tarjetas guardadas</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Guarda una tarjeta para pagar más rápido
+                  </p>
+                  <Button size="sm" onClick={() => setAddCardOpen(true)}>
+                    <Plus className="w-4 h-4" />
+                    Agregar tarjeta
+                  </Button>
+                </div>
+              </Card>
+            )}
 
             {/* PSE */}
             <motion.div
@@ -341,10 +436,10 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
               transition={{ delay: 0.05 }}
             >
               <Card
-                onClick={() => setPaymentMethod('pse')}
+                onClick={() => setPaymentType('pse')}
                 hoverable
                 className={`cursor-pointer transition-all ${
-                  paymentMethod === 'pse'
+                  paymentType === 'pse'
                     ? 'border-2 border-primary bg-primary/5 shadow-lg'
                     : 'border border-border'
                 }`}
@@ -357,7 +452,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                     <p className="font-semibold">PSE</p>
                     <p className="text-xs text-muted-foreground">Débito directo desde tu banco</p>
                   </div>
-                  {paymentMethod === 'pse' && (
+                  {paymentType === 'pse' && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -378,10 +473,10 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
               transition={{ delay: 0.1 }}
             >
               <Card
-                onClick={() => setPaymentMethod('nequi')}
+                onClick={() => setPaymentType('nequi')}
                 hoverable
                 className={`cursor-pointer transition-all ${
-                  paymentMethod === 'nequi'
+                  paymentType === 'nequi'
                     ? 'border-2 border-primary bg-primary/5 shadow-lg'
                     : 'border border-border'
                 }`}
@@ -394,7 +489,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                     <p className="font-semibold">Nequi</p>
                     <p className="text-xs text-muted-foreground">Pago instantáneo con QR</p>
                   </div>
-                  {paymentMethod === 'nequi' && (
+                  {paymentType === 'nequi' && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -467,6 +562,13 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
           </Card>
         </motion.div>
       </div>
+
+      <AddPaymentMethodSheet
+        open={addCardOpen}
+        mode="add"
+        onClose={() => setAddCardOpen(false)}
+        onSubmit={handleAddCard}
+      />
 
       {/* Fixed Bottom CTA */}
       <motion.div

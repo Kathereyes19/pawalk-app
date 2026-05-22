@@ -138,3 +138,29 @@ alter table public.bookings add column if not exists selected_service_name text;
 alter table public.bookings add column if not exists care_instructions text;
 alter table public.bookings add column if not exists is_overnight boolean default false;
 alter table public.bookings add column if not exists institution_address text;
+
+-- Saved payment methods (tokenized metadata only — never store full PAN/CVV)
+create table if not exists public.payment_methods (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  brand text not null check (brand in ('visa', 'mastercard', 'amex', 'unknown')),
+  last4 text not null check (char_length(last4) = 4),
+  exp_month int not null check (exp_month between 1 and 12),
+  exp_year int not null check (exp_year >= 2020),
+  cardholder_name text not null,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists payment_methods_user_id_idx on public.payment_methods (user_id);
+create unique index if not exists payment_methods_one_default_per_user
+  on public.payment_methods (user_id)
+  where is_default;
+
+alter table public.payment_methods enable row level security;
+
+create policy "Users can manage own payment methods"
+  on public.payment_methods for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
