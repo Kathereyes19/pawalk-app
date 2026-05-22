@@ -11,10 +11,22 @@ export interface SignUpCredentials {
   password: string;
 }
 
+export type AuthErrorCode =
+  | 'email_exists'
+  | 'invalid_credentials'
+  | 'weak_password'
+  | 'generic';
+
+export interface AuthError {
+  message: string;
+  field?: 'email' | 'password' | 'name';
+  code?: AuthErrorCode;
+}
+
 export type AuthMode = 'supabase' | 'mock';
 
 export interface AuthResult<T = unknown> {
   data: T | null;
-  error: { message: string; field?: 'email' | 'password' | 'name' } | null;
+  error: AuthError | null;
   mode: AuthMode;
 }

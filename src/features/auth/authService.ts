@@ -1,18 +1,17 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
-import { clearMockUserId } from '@/lib/mockUser';
+import {
+  clearMockUserId,
+  isMockEmailRegistered,
+  registerMockEmail,
+} from '@/lib/mockUser';
+import {
+  DUPLICATE_EMAIL_ERROR,
+  isDuplicateSignUpUser,
+  mapSignInError,
+  mapSignUpError,
+} from './authErrors';
 import type { AuthResult, SignInCredentials, SignUpCredentials } from '@/types';
-
-function mapAuthError(message: string): AuthResult['error'] {
-  const lower = message.toLowerCase();
-  if (lower.includes('password') || lower.includes('credentials')) {
-    return { message, field: 'password' };
-  }
-  if (lower.includes('email') || lower.includes('user')) {
-    return { message, field: 'email' };
-  }
-  return { message };
-}
 
 export async function signInWithEmail(
   credentials: SignInCredentials
@@ -32,7 +31,7 @@ export async function signInWithEmail(
   });
 
   if (error) {
-    return { data: null, error: mapAuthError(error.message), mode: 'supabase' };
+    return { data: null, error: mapSignInError(error), mode: 'supabase' };
   }
 
   return {
@@ -45,7 +44,13 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   credentials: SignUpCredentials
 ): Promise<AuthResult<{ userId: string | null }>> {
+  const normalizedEmail = credentials.email.trim().toLowerCase();
+
   if (!isSupabaseConfigured()) {
+    if (isMockEmailRegistered(normalizedEmail)) {
+      return { data: null, error: DUPLICATE_EMAIL_ERROR, mode: 'mock' };
+    }
+    registerMockEmail(normalizedEmail);
     return { data: { userId: null }, error: null, mode: 'mock' };
   }
 
@@ -55,7 +60,7 @@ export async function signUpWithEmail(
   }
 
   const { data, error } = await supabase.auth.signUp({
-    email: credentials.email.trim(),
+    email: normalizedEmail,
     password: credentials.password,
     options: {
       data: {
@@ -65,7 +70,11 @@ export async function signUpWithEmail(
   });
 
   if (error) {
-    return { data: null, error: mapAuthError(error.message), mode: 'supabase' };
+    return { data: null, error: mapSignUpError(error), mode: 'supabase' };
+  }
+
+  if (isDuplicateSignUpUser(data.user)) {
+    return { data: null, error: DUPLICATE_EMAIL_ERROR, mode: 'supabase' };
   }
 
   return {

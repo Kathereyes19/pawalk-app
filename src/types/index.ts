@@ -1,4 +1,4 @@
-export type { SignInCredentials, SignUpCredentials, AuthMode, AuthResult } from './auth';
+export type { SignInCredentials, SignUpCredentials, AuthMode, AuthError, AuthErrorCode, AuthResult } from './auth';
 export type { UserProfile, ProfileRow } from './profile';
 export type { Pet, PetRow, Vaccination } from './pet';
 export type { Walker } from './walker';

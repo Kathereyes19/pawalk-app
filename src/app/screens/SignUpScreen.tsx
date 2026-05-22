@@ -8,6 +8,7 @@ import { IconButton } from '../components/IconButton';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 import { signUpWithEmail, validateSignUp } from '@/features/auth';
 import { setMockUserId } from '@/lib/mockUser';
+import { ExistingAccountModal } from '../components/ExistingAccountModal';
 
 interface SignUpScreenProps {
   onBack: () => void;
@@ -25,6 +26,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, on
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; terms?: string }>({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showExistingAccountModal, setShowExistingAccountModal] = useState(false);
+  const emailInputRef = React.useRef<HTMLInputElement>(null);
 
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: '', color: '' };
@@ -77,6 +80,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, on
 
     if (result.error) {
       setIsLoading(false);
+
+      if (result.error.code === 'email_exists') {
+        setShowExistingAccountModal(true);
+        setErrors({ email: undefined });
+        return;
+      }
+
       const field = result.error.field ?? 'email';
       const mappedField = field === 'name' ? 'name' : field;
       setErrors({ [mappedField]: result.error.message });
@@ -100,6 +110,21 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, on
 
   return (
     <div className="fixed inset-0 bg-background flex flex-col">
+      <ExistingAccountModal
+        open={showExistingAccountModal}
+        email={email}
+        onLogin={() => {
+          setShowExistingAccountModal(false);
+          onLogin();
+        }}
+        onUseDifferentEmail={() => {
+          setShowExistingAccountModal(false);
+          setEmail('');
+          setErrors((prev) => ({ ...prev, email: undefined }));
+          requestAnimationFrame(() => emailInputRef.current?.focus());
+        }}
+      />
+
       {/* Success Overlay */}
       <AnimatePresence>
         {showSuccess && (
@@ -210,6 +235,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp, on
 
           {/* Email Input */}
           <Input
+            ref={emailInputRef}
             type="email"
             label="Correo electrónico"
             placeholder="tu@email.com"

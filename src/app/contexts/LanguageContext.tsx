@@ -22,6 +22,11 @@ const translations: Record<Language, Record<string, string>> = {
     'get.started': 'Comenzar',
     'login': 'Iniciar sesión',
     'signup': 'Registrarse',
+    'signup.email.exists.title': 'Este correo ya está registrado',
+    'signup.email.exists.message':
+      'Ya tienes una cuenta con este correo. Puedes iniciar sesión o registrarte con un email diferente.',
+    'signup.email.exists.login': 'Iniciar sesión',
+    'signup.email.exists.change': 'Usar otro correo',
     'language': 'Idioma',
     'theme': 'Tema',
     'light': 'Claro',
@@ -144,6 +149,11 @@ const translations: Record<Language, Record<string, string>> = {
     'get.started': 'Get Started',
     'login': 'Log In',
     'signup': 'Sign Up',
+    'signup.email.exists.title': 'This email is already registered',
+    'signup.email.exists.message':
+      'An account already exists with this email. Log in or sign up with a different address.',
+    'signup.email.exists.login': 'Log in',
+    'signup.email.exists.change': 'Use a different email',
     'language': 'Language',
     'theme': 'Theme',
     'light': 'Light',
