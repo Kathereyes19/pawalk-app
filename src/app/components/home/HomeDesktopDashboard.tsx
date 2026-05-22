@@ -1,12 +1,11 @@
 import React from 'react';
-import { Navigation, SlidersHorizontal } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SearchBar } from '../SearchBar';
 import { Card } from '../Card';
 import { Button } from '../Button';
 import { IconButton } from '../IconButton';
 import { HomeMapCanvas } from '../map/HomeMapCanvas';
-import { HomeFilterSidebar } from './HomeFilterSidebar';
 import { HomeWalkerGridCard } from './HomeWalkerGridCard';
 import { HomeDesktopRightPanel } from './HomeDesktopRightPanel';
 import type { HomeServiceCategory, Walker } from '@/types';
@@ -63,30 +62,12 @@ export const HomeDesktopDashboard: React.FC<HomeDesktopDashboardProps> = ({
   yearsLabel,
   fromLabel,
 }) => (
-  <div className="hidden md:grid md:grid-cols-[240px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)_340px] xl:grid-cols-[260px_minmax(0,1fr)_380px] flex-1 min-h-0 overflow-hidden">
-    <HomeFilterSidebar
-      category={category}
-      activeFilterCount={activeFilterCount}
-      resultCount={filteredProviders.length}
-      isQuickFilterActive={isQuickFilterActive}
-      onQuickFilterToggle={onQuickFilterToggle}
-      onOpenAdvanced={onOpenAdvanced}
-      onClear={onClearFilters}
-    />
-
-    <div className="flex flex-col min-h-0 overflow-hidden md:col-start-2 lg:col-start-2">
+  <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] flex-1 min-h-0 overflow-hidden">
+    <div className="flex flex-col min-h-0 overflow-hidden md:col-start-1">
       <div className="px-5 lg:px-6 py-4 border-b border-border bg-background/95 backdrop-blur-sm shrink-0">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <h1 className="text-xl lg:text-2xl font-bold">{categoryTitle}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{categorySubtitle}</p>
-          </div>
-          <div className="flex lg:hidden items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={onOpenAdvanced}>
-              <SlidersHorizontal className="w-4 h-4" />
-              Filtros
-            </Button>
-          </div>
+        <div className="mb-4">
+          <h1 className="text-xl lg:text-2xl font-bold">{categoryTitle}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{categorySubtitle}</p>
         </div>
         <SearchBar
           placeholder={searchPlaceholder}

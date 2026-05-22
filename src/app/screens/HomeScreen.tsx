@@ -5,11 +5,6 @@ import {
   MapPin,
   Verified,
   Navigation,
-  Zap,
-  X,
-  Moon,
-  Home,
-  Stethoscope,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -30,22 +25,8 @@ import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
 import { getWalkerAvatarProps } from '@/lib/avatars';
 import {
   HOME_CATEGORIES,
-  QUICK_FILTERS_BY_CATEGORY,
-  type CategoryQuickFilterId,
 } from '@/types/homeDiscovery';
 import type { HomeServiceCategory, Walker } from '@/types';
-
-const QUICK_FILTER_ICONS: Record<CategoryQuickFilterId, React.ElementType> = {
-  nearby: MapPin,
-  'available-now': Zap,
-  'small-dogs': Star,
-  overnight: Moon,
-  'multi-pet': Home,
-  experienced: Star,
-  'open-now': Zap,
-  emergency: Stethoscope,
-  nearest: MapPin,
-};
 
 interface HomeScreenProps {
   onWalkerClick: (walker: Walker) => void;
@@ -298,8 +279,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     [category]
   );
 
-  const quickFilters = QUICK_FILTERS_BY_CATEGORY[category];
-
   const searchPlaceholder =
     category === 'veterinary'
       ? 'Buscar clínicas o veterinarios...'
@@ -385,32 +364,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
           >
             <Navigation className="w-5 h-5 text-primary" />
           </IconButton>
-        </div>
-
-        <div className="px-4 py-3 bg-background border-b border-border shrink-0">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-            {quickFilters.map((filter) => {
-              const Icon = QUICK_FILTER_ICONS[filter.id];
-              const isActive = isQuickFilterActive(filter.id);
-              return (
-                <motion.button
-                  key={filter.id}
-                  type="button"
-                  onClick={() => handleQuickFilterToggle(filter.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 whitespace-nowrap transition-all ${
-                    isActive
-                      ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm font-medium">{filter.label}</span>
-                  {isActive && <X className="w-3.5 h-3.5" />}
-                </motion.button>
-              );
-            })}
-          </div>
         </div>
 
         <div className="px-4 py-3 bg-background flex items-center justify-between shrink-0">
@@ -547,6 +500,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
         onClose={closeFilterSheet}
         isApplying={isApplying}
         resultCount={draftResultCount}
+        activeFilterCount={activeFilterCount}
+        isQuickFilterActive={isQuickFilterActive}
+        onQuickFilterToggle={handleQuickFilterToggle}
       />
     </div>
   );

@@ -11,6 +11,7 @@ interface MarketplaceFilterSidebarProps {
   resultCount: number;
 }
 
+/** Desktop-only filter panel — right sidebar (single filter UI for marketplace home). */
 export const MarketplaceFilterSidebar: React.FC<MarketplaceFilterSidebarProps> = ({
   filters,
   priceBounds,
@@ -18,7 +19,7 @@ export const MarketplaceFilterSidebar: React.FC<MarketplaceFilterSidebarProps> =
   onReset,
   resultCount,
 }) => (
-  <aside className="hidden md:flex md:flex-col md:w-[260px] lg:w-[280px] shrink-0 h-full border-r border-border bg-background overflow-hidden">
+  <aside className="hidden md:flex md:flex-col md:w-[280px] lg:w-[300px] shrink-0 h-full border-l border-border bg-background overflow-hidden order-2">
     <div className="p-4 border-b border-border shrink-0">
       <h2 className="font-bold text-base flex items-center gap-2">
         <SlidersHorizontal className="w-4 h-4 text-primary" />

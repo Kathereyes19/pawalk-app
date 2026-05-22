@@ -35,7 +35,6 @@ import { ProductCard } from '../components/marketplace/ProductCard';
 import { ProductGridSkeleton } from '../components/marketplace/ProductCardSkeleton';
 import { ProductImage } from '../components/marketplace/ProductImage';
 import { StarRating } from '../components/marketplace/StarRating';
-import { MarketplaceCategoryChips } from '../components/marketplace/MarketplaceCategoryChips';
 import { MarketplaceTrustBar } from '../components/marketplace/MarketplaceTrustBar';
 import { CartItemRow } from '../components/marketplace/CartItemRow';
 import { MarketplaceFilterSheet } from '../components/marketplace/MarketplaceFilterSheet';
@@ -154,16 +153,8 @@ function MarketplaceHomeView() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
-    <div className="h-full md:flex md:overflow-hidden">
-      <MarketplaceFilterSidebar
-        filters={filters}
-        priceBounds={priceBounds}
-        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-        onReset={resetFilters}
-        resultCount={filteredProducts.length}
-      />
-
-      <div className="flex-1 h-full overflow-y-auto pb-24 md:pb-6">
+    <div className="h-full md:flex md:flex-row md:overflow-hidden">
+      <div className="flex-1 h-full overflow-y-auto pb-24 md:pb-6 min-w-0 order-1">
       <MarketplaceHeader
         title={t('marketplace.title')}
         subtitle={t('marketplace.subtitle')}
@@ -195,11 +186,6 @@ function MarketplaceHomeView() {
         </div>
 
         <MarketplaceTrustBar />
-
-        <MarketplaceCategoryChips
-          active={filters.browseCategory}
-          onChange={(browseCategory) => setFilters((current) => ({ ...current, browseCategory }))}
-        />
 
         {isLoading ? (
           <ProductGridSkeleton />
@@ -264,6 +250,14 @@ function MarketplaceHomeView() {
         onReset={resetFilters}
       />
       </div>
+
+      <MarketplaceFilterSidebar
+        filters={filters}
+        priceBounds={priceBounds}
+        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+        onReset={resetFilters}
+        resultCount={filteredProducts.length}
+      />
     </div>
   );
 }

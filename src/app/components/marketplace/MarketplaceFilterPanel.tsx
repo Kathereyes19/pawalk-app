@@ -2,7 +2,9 @@ import React from 'react';
 import { Button } from '../Button';
 import { ChipButton } from '../ChipButton';
 import { Input } from '../Input';
-import type { MarketplaceCategory, MarketplaceFilters } from '@/types';
+import { useLanguage } from '@/app/contexts/LanguageContext';
+import { MARKETPLACE_BROWSE_CATEGORIES } from '@/features/marketplace';
+import type { MarketplaceCategory, MarketplaceBrowseCategory, MarketplaceFilters } from '@/types';
 
 const CATEGORIES: Array<{ id: MarketplaceCategory | 'all'; label: string; emoji: string }> = [
   { id: 'all', label: 'Todos', emoji: '🛍️' },
@@ -33,10 +35,34 @@ export const MarketplaceFilterPanel: React.FC<MarketplaceFilterPanelProps> = ({
   variant = 'sheet',
 }) => {
   const isSidebar = variant === 'sidebar';
+  const { t } = useLanguage();
 
   return (
     <>
       <div className={isSidebar ? 'p-4 space-y-5 flex-1 overflow-y-auto' : 'p-5 space-y-5 overflow-y-auto'}>
+        <div>
+          <p className="text-sm font-medium mb-2">Explorar</p>
+          <div className="flex flex-wrap gap-2">
+            <ChipButton
+              size="sm"
+              active={filters.browseCategory === 'all'}
+              onClick={() => onChange({ browseCategory: 'all' })}
+            >
+              {t('marketplace.browse.all')}
+            </ChipButton>
+            {MARKETPLACE_BROWSE_CATEGORIES.map((browseCategory) => (
+              <ChipButton
+                key={browseCategory}
+                size="sm"
+                active={filters.browseCategory === browseCategory}
+                onClick={() => onChange({ browseCategory })}
+              >
+                {t(`marketplace.browse.${browseCategory}`)}
+              </ChipButton>
+            ))}
+          </div>
+        </div>
+
         <div>
           <p className="text-sm font-medium mb-2">Categoría</p>
           <div className={`grid gap-2 ${isSidebar ? 'grid-cols-1' : 'grid-cols-2'}`}>

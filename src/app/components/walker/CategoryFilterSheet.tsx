@@ -20,10 +20,12 @@ import { IconButton } from '../IconButton';
 import type {
   CaregiversCategoryFilters,
   CategoryFiltersMap,
+  CategoryQuickFilterId,
   HomeServiceCategory,
   VeterinaryCategoryFilters,
   WalkersCategoryFilters,
 } from '@/types/homeDiscovery';
+import { HomeFilterPanel } from '../home/HomeFilterPanel';
 
 interface CategoryFilterSheetProps {
   open: boolean;
@@ -35,6 +37,9 @@ interface CategoryFilterSheetProps {
   onClose: () => void;
   isApplying: boolean;
   resultCount: number;
+  activeFilterCount: number;
+  isQuickFilterActive: (id: CategoryQuickFilterId) => boolean;
+  onQuickFilterToggle: (id: CategoryQuickFilterId) => void;
 }
 
 function ChipButton({
@@ -371,6 +376,9 @@ export const CategoryFilterSheet: React.FC<CategoryFilterSheetProps> = ({
   onClose,
   isApplying,
   resultCount,
+  activeFilterCount,
+  isQuickFilterActive,
+  onQuickFilterToggle,
 }) => {
   const categoryMeta = {
     walkers: 'Filtros de paseadores',
@@ -395,7 +403,7 @@ export const CategoryFilterSheet: React.FC<CategoryFilterSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-card rounded-t-3xl shadow-2xl border-t border-border z-50 max-h-[88vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 bg-card rounded-t-3xl shadow-2xl border-t border-border z-50 max-h-[88vh] flex flex-col md:bottom-auto md:top-1/2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-lg md:w-full md:rounded-2xl md:border"
           >
             <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
               <div>
@@ -410,6 +418,28 @@ export const CategoryFilterSheet: React.FC<CategoryFilterSheetProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              <div className="md:hidden">
+                <HomeFilterPanel
+                  category={category}
+                  activeFilterCount={activeFilterCount}
+                  isQuickFilterActive={isQuickFilterActive}
+                  onQuickFilterToggle={onQuickFilterToggle}
+                  onOpenAdvanced={() => {}}
+                  onClear={onClear}
+                  variant="sheet"
+                  showHeader
+                  showAdvancedButton={false}
+                />
+              </div>
+
+              <div className="md:hidden border-t border-border pt-2">
+                <h3 className="text-sm font-semibold mb-4">Filtros avanzados</h3>
+              </div>
+
+              <div className="hidden md:block">
+                <h3 className="text-sm font-semibold mb-4">Filtros avanzados</h3>
+              </div>
+
               {category === 'walkers' && (
                 <WalkersFilters
                   draft={draft as WalkersCategoryFilters}
