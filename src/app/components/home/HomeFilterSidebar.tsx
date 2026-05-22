@@ -48,7 +48,7 @@ export const HomeFilterSidebar: React.FC<HomeFilterSidebarProps> = ({
   const quickFilters = QUICK_FILTERS_BY_CATEGORY[category];
 
   return (
-    <aside className="hidden md:flex md:flex-col md:h-full md:border-r md:border-border md:bg-background md:overflow-y-auto md:col-start-1 md:row-start-1 md:row-span-2 lg:row-span-1">
+    <aside className="hidden md:flex md:flex-col md:h-full md:border-r md:border-border md:bg-background md:overflow-y-auto md:col-start-1 md:row-start-1">
       <div className="p-4 border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-10">
         <h2 className="font-bold text-base flex items-center gap-2">
           <SlidersHorizontal className="w-4 h-4 text-primary" />
