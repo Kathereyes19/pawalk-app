@@ -4,6 +4,7 @@ import { Bell, ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/app/contexts/LanguageContext';
 import { useReminders } from '@/contexts/RemindersContext';
 import { ProfileSectionCard } from '../profile/ProfileSectionCard';
+import { ReminderSummaryText } from './ReminderSummaryText';
 
 interface RemindersSectionProps {
   onOpenReminders: () => void;
@@ -13,8 +14,6 @@ export const RemindersSection: React.FC<RemindersSectionProps> = ({ onOpenRemind
   const { t } = useLanguage();
   const { statusCounts } = useReminders();
 
-  const pendingCount = statusCounts.upcoming + statusCounts.overdue;
-
   return (
     <ProfileSectionCard
       title={t('reminders.title')}
@@ -23,7 +22,8 @@ export const RemindersSection: React.FC<RemindersSectionProps> = ({ onOpenRemind
       <button
         type="button"
         onClick={onOpenReminders}
-        className="w-full text-left"
+        aria-label={t('reminders.manage')}
+        className="w-full text-left touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-2xl"
       >
         <motion.div
           whileTap={{ scale: 0.98 }}
@@ -34,16 +34,7 @@ export const RemindersSection: React.FC<RemindersSectionProps> = ({ onOpenRemind
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold">{t('reminders.manage')}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {pendingCount > 0
-                ? t('reminders.sectionPending').replace('{count}', String(pendingCount))
-                : t('reminders.sectionEmpty')}
-            </p>
-            {statusCounts.overdue > 0 && (
-              <p className="text-xs text-destructive font-medium mt-1">
-                {t('reminders.sectionOverdue').replace('{count}', String(statusCounts.overdue))}
-              </p>
-            )}
+            <ReminderSummaryText statusCounts={statusCounts} />
           </div>
           <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
         </motion.div>

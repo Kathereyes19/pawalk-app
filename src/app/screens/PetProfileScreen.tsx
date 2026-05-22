@@ -42,6 +42,7 @@ import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 import { ConfirmDialog } from '../components/pets/ConfirmDialog';
 import { useReminders } from '@/contexts/RemindersContext';
+import { ReminderSummaryText } from '../components/reminders/ReminderSummaryText';
 
 type Pet = PetType & { vaccinations?: Vaccination[] };
 
@@ -401,14 +402,7 @@ export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenRemind
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold">{t('reminders.title')}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {statusCounts.upcoming + statusCounts.overdue > 0
-                  ? t('reminders.sectionPending').replace(
-                      '{count}',
-                      String(statusCounts.upcoming + statusCounts.overdue)
-                    )
-                  : t('reminders.sectionEmpty')}
-              </p>
+              <ReminderSummaryText statusCounts={statusCounts} />
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
           </motion.button>

@@ -21,7 +21,7 @@ export type AppScreen =
   | 'notifications'
   | 'reminders';
 
-export type BottomNavTab = 'home' | 'bookings' | 'pets' | 'profile';
+export type BottomNavTab = 'home' | 'bookings' | 'marketplace' | 'pets' | 'profile';
 
 /** Planned URL paths when migrating to react-router */
 export const ROUTE_PATHS = {
@@ -42,6 +42,7 @@ export const ROUTE_PATHS = {
   notifications: '/notifications',
   reminders: '/reminders',
   bookingsTab: '/bookings',
+  marketplaceTab: '/marketplace',
   petsTab: '/pets',
   profileTab: '/profile',
 } as const;

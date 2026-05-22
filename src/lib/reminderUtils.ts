@@ -164,3 +164,49 @@ export function countRemindersByStatus(
     { upcoming: 0, overdue: 0, completed: 0 }
   );
 }
+
+export type ReminderStatusCounts = Record<ReminderStatus, number>;
+
+export const REMINDER_DASHBOARD_STATUSES: ReminderStatus[] = [
+  'upcoming',
+  'overdue',
+  'completed',
+];
+
+export function getReminderFilterCount(
+  counts: ReminderStatusCounts,
+  tab: ReminderFilterTab
+): number {
+  if (tab === 'all') {
+    return counts.upcoming + counts.overdue + counts.completed;
+  }
+  return counts[tab];
+}
+
+export interface ReminderSummaryLabels {
+  upcoming: string;
+  overdue: string;
+  completed: string;
+  empty: string;
+}
+
+export function formatReminderSummary(
+  counts: ReminderStatusCounts,
+  labels: ReminderSummaryLabels
+): string {
+  const total = counts.upcoming + counts.overdue + counts.completed;
+  if (total === 0) return labels.empty;
+
+  const segments: string[] = [];
+  if (counts.upcoming > 0) {
+    segments.push(`${counts.upcoming} ${labels.upcoming}`);
+  }
+  if (counts.overdue > 0) {
+    segments.push(`${counts.overdue} ${labels.overdue}`);
+  }
+  if (segments.length === 0 && counts.completed > 0) {
+    segments.push(`${counts.completed} ${labels.completed}`);
+  }
+
+  return segments.length > 0 ? segments.join(' · ') : labels.empty;
+}

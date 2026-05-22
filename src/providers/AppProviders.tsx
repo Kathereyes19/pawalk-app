@@ -6,6 +6,7 @@ import { UserDataProvider } from '@/contexts/UserDataContext';
 import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
 import { RemindersProvider } from '@/contexts/RemindersContext';
 import { ReservationsProvider } from '@/contexts/ReservationsContext';
+import { MarketplaceProvider } from '@/contexts/MarketplaceContext';
 import { ReminderAlertOverlay } from '@/app/components/reminders/ReminderAlertOverlay';
 
 interface AppProvidersProps {
@@ -23,12 +24,14 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         <AuthProvider>
           <UserDataProvider>
             <PaymentMethodsProvider>
-              <RemindersProvider>
-                <ReservationsProvider>
-                  {children}
-                  <ReminderAlertOverlay />
-                </ReservationsProvider>
-              </RemindersProvider>
+              <MarketplaceProvider>
+                <RemindersProvider>
+                  <ReservationsProvider>
+                    {children}
+                    <ReminderAlertOverlay />
+                  </ReservationsProvider>
+                </RemindersProvider>
+              </MarketplaceProvider>
             </PaymentMethodsProvider>
           </UserDataProvider>
         </AuthProvider>

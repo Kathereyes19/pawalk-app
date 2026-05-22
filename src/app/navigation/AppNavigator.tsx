@@ -15,6 +15,7 @@ import {
   PetProfileScreen,
   ProfileScreen,
   RemindersScreen,
+  MarketplaceScreen,
   ReservationsScreen,
   SignUpScreen,
   WalkerProfileScreen,
@@ -172,6 +173,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
             onViewWalkDetail={handlers.handleViewWalkDetail}
           />
         );
+
+      case 'marketplace':
+        return <MarketplaceScreen />;
 
       case 'pets':
         return <PetProfileScreen onOpenReminders={handlers.handleOpenReminders} />;

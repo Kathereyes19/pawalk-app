@@ -194,3 +194,64 @@ create policy "Users can manage own pet care reminders"
   on public.pet_care_reminders for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Marketplace products catalog
+create table if not exists public.marketplace_products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  category text not null check (
+    category in ('food', 'grooming', 'toys', 'veterinary', 'services')
+  ),
+  price numeric not null check (price >= 0),
+  rating numeric not null default 0 check (rating >= 0 and rating <= 5),
+  review_count int not null default 0 check (review_count >= 0),
+  short_description text not null,
+  description text not null,
+  image_emoji text not null default '🛍️',
+  image_url text,
+  gallery text[] not null default '{}',
+  in_stock boolean not null default true,
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists marketplace_products_category_idx on public.marketplace_products (category);
+create index if not exists marketplace_products_price_idx on public.marketplace_products (price);
+
+alter table public.marketplace_products enable row level security;
+
+create policy "Anyone authenticated can read marketplace products"
+  on public.marketplace_products for select
+  using (auth.role() = 'authenticated');
+
+-- Marketplace orders
+create table if not exists public.marketplace_orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  items jsonb not null default '[]',
+  subtotal numeric not null check (subtotal >= 0),
+  delivery_address text not null,
+  payment_method_label text not null,
+  payment_method_id uuid references public.payment_methods (id) on delete set null,
+  status text not null default 'confirmed' check (
+    status in ('confirmed', 'preparing', 'shipped', 'delivered', 'cancelled')
+  ),
+  tracking_steps jsonb not null default '[]',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists marketplace_orders_user_id_idx on public.marketplace_orders (user_id);
+create index if not exists marketplace_orders_created_idx on public.marketplace_orders (user_id, created_at desc);
+
+alter table public.marketplace_orders enable row level security;
+
+create policy "Users can manage own marketplace orders"
+  on public.marketplace_orders for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Marketplace order tracking columns (safe for existing databases)
+alter table public.marketplace_orders add column if not exists tracking_steps jsonb not null default '[]';
