@@ -19,10 +19,19 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useUserData } from '@/contexts/UserDataContext';
-import { replacePetsForUser } from '@/features/pets';
+import {
+  AVATAR_OPTIONS,
+  CAT_BREEDS,
+  createPet,
+  CUSTOM_VACCINE_OPTION,
+  deletePet,
+  DOG_BREEDS,
+  getVaccineOptionsForSpecies,
+  updatePet,
+} from '@/features/pets';
 import { isSupabaseConfigured } from '@/config/env';
 import { addVaccination, deleteVaccination } from '@/features/vaccinations';
-import { createPetId } from '@/lib/petId';
+import { getPetAvatarProps } from '@/lib/petAvatar';
 import type { Pet as PetType, Vaccination } from '@/types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -30,6 +39,7 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
+import { ConfirmDialog } from '../components/pets/ConfirmDialog';
 
 type Pet = PetType & { vaccinations?: Vaccination[] };
 
@@ -40,10 +50,15 @@ export const PetProfileScreen: React.FC = () => {
   const [vaccineError, setVaccineError] = useState<string | null>(null);
   const [isSavingVaccine, setIsSavingVaccine] = useState(false);
 
-  const [showAddPet, setShowAddPet] = useState(false);
+  const [showPetForm, setShowPetForm] = useState(false);
+  const [petFormMode, setPetFormMode] = useState<'add' | 'edit'>('add');
+  const [editingPetId, setEditingPetId] = useState<string | null>(null);
+  const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
+  const [isDeletingPet, setIsDeletingPet] = useState(false);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
   const [showAddVaccine, setShowAddVaccine] = useState(false);
+  const [customVaccineName, setCustomVaccineName] = useState('');
   const [vaccineForm, setVaccineForm] = useState({
     name: '',
     date: '',
@@ -51,8 +66,7 @@ export const PetProfileScreen: React.FC = () => {
     cardImageUrl: '' as string | null,
   });
   const [formStep, setFormStep] = useState(1);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
 
   // Form state
   const [newPet, setNewPet] = useState<Partial<Pet>>({
@@ -75,36 +89,62 @@ export const PetProfileScreen: React.FC = () => {
     { id: 'calm', label: 'Tranquilo', icon: '🧘', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' },
   ];
 
-  const dogBreeds = [
-    'Labrador Retriever', 'Golden Retriever', 'Pastor Alemán', 'Bulldog', 'Beagle',
-    'Poodle', 'Rottweiler', 'Yorkshire Terrier', 'Boxer', 'Dachshund', 'Chihuahua',
-    'Husky Siberiano', 'Pomerania', 'Schnauzer', 'Cocker Spaniel', 'Otro'
-  ];
+  const dogBreeds = [...DOG_BREEDS];
+  const catBreeds = [...CAT_BREEDS];
+  const avatarOptions = AVATAR_OPTIONS;
 
-  const catBreeds = [
-    'Siamés', 'Persa', 'Maine Coon', 'Bengalí', 'Ragdoll',
-    'British Shorthair', 'Sphynx', 'Angora', 'Mestizo', 'Otro'
-  ];
-
-  const avatarOptions = {
-    dog: ['🐕', '🐶', '🦮', '🐕‍🦺', '🐩'],
-    cat: ['🐈', '🐱', '🐈‍⬛', '😺', '😸'],
+  const resetPetForm = () => {
+    setNewPet({
+      name: '',
+      breed: '',
+      age: 0,
+      weight: 0,
+      behaviors: [],
+      gender: 'male',
+      species: 'dog',
+      avatar: '',
+    });
+    setFormStep(1);
+    setEditingPetId(null);
+    setPetFormMode('add');
   };
 
-  const handleAvatarUpload = () => {
-    setIsUploading(true);
-    setUploadProgress(0);
+  const openAddPetForm = () => {
+    resetPetForm();
+    setShowPetForm(true);
+  };
 
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 150);
+  const openEditPetForm = (pet: Pet) => {
+    setPetFormMode('edit');
+    setEditingPetId(pet.id);
+    setNewPet({
+      name: pet.name,
+      breed: pet.breed,
+      age: pet.age,
+      weight: pet.weight,
+      behaviors: [...pet.behaviors],
+      gender: pet.gender,
+      species: pet.species,
+      avatar: pet.avatar,
+    });
+    setFormStep(1);
+    setShowPetForm(true);
+  };
+
+  const closePetForm = () => {
+    setShowPetForm(false);
+    resetPetForm();
+  };
+
+  const handlePetAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setNewPet((prev) => ({ ...prev, avatar: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const toggleBehavior = (behaviorId: string) => {
@@ -129,8 +169,11 @@ export const PetProfileScreen: React.FC = () => {
   };
 
   const handleAddVaccine = async () => {
-    if (!selectedPet || !userId || !vaccineForm.name || !vaccineForm.date || !vaccineForm.nextDue) {
-      setVaccineError('Completa todos los campos obligatorios');
+    const vaccineName =
+      vaccineForm.name === CUSTOM_VACCINE_OPTION ? customVaccineName.trim() : vaccineForm.name;
+
+    if (!selectedPet || !userId || !vaccineName || !vaccineForm.date) {
+      setVaccineError('Completa la vacuna y la fecha de aplicación');
       return;
     }
 
@@ -141,9 +184,9 @@ export const PetProfileScreen: React.FC = () => {
       userId,
       selectedPet.id,
       {
-        name: vaccineForm.name,
+        name: vaccineName,
         date: vaccineForm.date,
-        nextDue: vaccineForm.nextDue,
+        nextDue: vaccineForm.nextDue || undefined,
         cardImageUrl: vaccineForm.cardImageUrl,
       }
     );
@@ -171,6 +214,7 @@ export const PetProfileScreen: React.FC = () => {
     const list = updatedPets ?? nextPets;
     setSelectedPet(list.find((p) => p.id === selectedPet.id) ?? null);
     setVaccineForm({ name: '', date: '', nextDue: '', cardImageUrl: null });
+    setCustomVaccineName('');
     setShowAddVaccine(false);
     setIsSavingVaccine(false);
   };
@@ -210,48 +254,93 @@ export const PetProfileScreen: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const persistPets = async (nextPets: Pet[]) => {
-    if (!userId) {
-      setPets(nextPets);
-      return;
-    }
-    setIsSaving(true);
-    const { pets: saved, error } = await replacePetsForUser(userId, nextPets);
-    setPets(error ? nextPets : saved);
-    setIsSaving(false);
-  };
-
   const handleSavePet = async () => {
-    const petToSave: Pet = {
-      id: createPetId(),
+    if (!userId) return;
+
+    const species = (newPet.species || 'dog') as 'dog' | 'cat';
+    const petPayload = {
       name: newPet.name || '',
-      avatar: newPet.avatar || avatarOptions[newPet.species as 'dog' | 'cat'][0],
+      avatar: newPet.avatar || avatarOptions[species][0],
       breed: newPet.breed || '',
       age: newPet.age || 0,
       weight: newPet.weight || 0,
       behaviors: newPet.behaviors || [],
       vaccinated: false,
       gender: newPet.gender || 'male',
-      species: newPet.species || 'dog',
-      vaccinations: [],
+      species,
     };
 
-    await persistPets([...pets, petToSave]);
-    setShowAddPet(false);
-    setFormStep(1);
-    setNewPet({
-      name: '',
-      breed: '',
-      age: 0,
-      weight: 0,
-      behaviors: [],
-      gender: 'male',
-      species: 'dog',
-      avatar: '',
-    });
+    setIsSaving(true);
+
+    if (petFormMode === 'edit' && editingPetId) {
+      const existing = pets.find((pet) => pet.id === editingPetId);
+      const { pet, error } = await updatePet(userId, {
+        ...petPayload,
+        id: editingPetId,
+        vaccinated: existing?.vaccinated ?? false,
+        vaccinations: existing?.vaccinations ?? [],
+      });
+
+      if (error) {
+        setIsSaving(false);
+        return;
+      }
+
+      if (pet) {
+        setPets(pets.map((item) => (item.id === pet.id ? pet : item)));
+      } else if (isSupabaseConfigured()) {
+        await refreshUserData();
+      }
+    } else {
+      const { pet, error } = await createPet(userId, petPayload);
+      if (error) {
+        setIsSaving(false);
+        return;
+      }
+
+      if (pet) {
+        setPets([...pets, pet]);
+      } else if (isSupabaseConfigured()) {
+        await refreshUserData();
+      }
+    }
+
+    setIsSaving(false);
+    closePetForm();
+  };
+
+  const handleDeletePet = async () => {
+    if (!petToDelete || !userId) return;
+
+    setIsDeletingPet(true);
+    const { error } = await deletePet(userId, petToDelete.id);
+
+    if (error) {
+      setIsDeletingPet(false);
+      return;
+    }
+
+    if (isSupabaseConfigured()) {
+      await refreshUserData();
+    } else {
+      setPets(pets.filter((pet) => pet.id !== petToDelete.id));
+    }
+
+    if (selectedPet?.id === petToDelete.id) {
+      setSelectedPet(null);
+      setShowHealthDashboard(false);
+    }
+
+    setIsDeletingPet(false);
+    setPetToDelete(null);
+    closePetForm();
   };
 
   const getVaccinationStatus = (vaccination: Vaccination) => {
+    if (!vaccination.nextDue) {
+      return { label: 'Registrada', variant: 'success' as const, icon: Check };
+    }
+
     const daysUntilDue = Math.floor(
       (new Date(vaccination.nextDue).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -283,7 +372,7 @@ export const PetProfileScreen: React.FC = () => {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setShowAddPet(true)}
+            onClick={openAddPetForm}
           >
             <Plus className="w-4 h-4" />
             {t('pet.add')}
@@ -306,7 +395,7 @@ export const PetProfileScreen: React.FC = () => {
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
               Crea un perfil para tu compañero peludo y mantén su información de salud organizada
             </p>
-            <Button onClick={() => setShowAddPet(true)}>
+            <Button onClick={openAddPetForm}>
               <Plus className="w-5 h-5" />
               Agregar mascota
             </Button>
@@ -326,7 +415,7 @@ export const PetProfileScreen: React.FC = () => {
                 <div className="flex gap-4 mb-4">
                   {/* Pet Avatar */}
                   <div className="relative">
-                    <Avatar emoji={pet.avatar} size="2xl" className="rounded-2xl" />
+                    <Avatar {...getPetAvatarProps(pet.avatar)} size="2xl" className="rounded-2xl" />
                     <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-card border-2 border-background rounded-full flex items-center justify-center">
                       <span className="text-xs">{pet.gender === 'male' ? '♂️' : '♀️'}</span>
                     </div>
@@ -350,7 +439,7 @@ export const PetProfileScreen: React.FC = () => {
                         >
                           <Syringe className="w-4 h-4" />
                         </IconButton>
-                        <IconButton variant="ghost" size="sm">
+                        <IconButton variant="ghost" size="sm" onClick={() => openEditPetForm(pet)}>
                           <Edit2 className="w-4 h-4" />
                         </IconButton>
                       </div>
@@ -412,18 +501,15 @@ export const PetProfileScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Pet Modal */}
+      {/* Add / Edit Pet Modal */}
       <AnimatePresence>
-        {showAddPet && (
+        {showPetForm && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
-            onClick={() => {
-              setShowAddPet(false);
-              setFormStep(1);
-            }}
+            onClick={closePetForm}
           >
             <motion.div
               initial={{ y: '100%', opacity: 0 }}
@@ -436,10 +522,12 @@ export const PetProfileScreen: React.FC = () => {
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-border">
                 <div>
-                  <h2 className="text-2xl font-bold">{t('pet.add')}</h2>
+                  <h2 className="text-2xl font-bold">
+                    {petFormMode === 'edit' ? 'Editar mascota' : t('pet.add')}
+                  </h2>
                   <p className="text-sm text-muted-foreground">Paso {formStep} de 3</p>
                 </div>
-                <IconButton onClick={() => setShowAddPet(false)} variant="ghost">
+                <IconButton onClick={closePetForm} variant="ghost">
                   <X className="w-5 h-5" />
                 </IconButton>
               </div>
@@ -502,6 +590,7 @@ export const PetProfileScreen: React.FC = () => {
                           {avatarOptions[newPet.species as 'dog' | 'cat'].map((emoji) => (
                             <button
                               key={emoji}
+                              type="button"
                               onClick={() => setNewPet({ ...newPet, avatar: emoji })}
                               className={`w-16 h-16 rounded-2xl border-2 transition-all text-3xl ${
                                 newPet.avatar === emoji
@@ -513,20 +602,27 @@ export const PetProfileScreen: React.FC = () => {
                             </button>
                           ))}
                           <button
-                            onClick={handleAvatarUpload}
-                            className="w-16 h-16 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 transition-all flex items-center justify-center"
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className={`w-16 h-16 rounded-2xl border-2 transition-all overflow-hidden flex items-center justify-center ${
+                              newPet.avatar && (newPet.avatar.startsWith('data:') || newPet.avatar.startsWith('http'))
+                                ? 'border-primary bg-primary/10'
+                                : 'border-dashed border-border hover:border-primary/50'
+                            }`}
                           >
-                            {isUploading ? (
-                              <div className="relative w-8 h-8">
-                                <svg className="w-8 h-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                              </div>
+                            {newPet.avatar && (newPet.avatar.startsWith('data:') || newPet.avatar.startsWith('http')) ? (
+                              <img src={newPet.avatar} alt="Avatar" className="w-full h-full object-cover" />
                             ) : (
                               <Camera className="w-6 h-6 text-muted-foreground" />
                             )}
                           </button>
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePetAvatarFile}
+                          />
                         </div>
                       </div>
 
@@ -660,7 +756,22 @@ export const PetProfileScreen: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 pb-safe border-t border-border flex gap-3">
+              <div className="p-6 pb-safe border-t border-border space-y-3">
+                {petFormMode === 'edit' && (
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    className="border-destructive/30 text-destructive hover:bg-destructive/5"
+                    onClick={() => {
+                      const pet = pets.find((item) => item.id === editingPetId);
+                      if (pet) setPetToDelete(pet);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar mascota
+                  </Button>
+                )}
+                <div className="flex gap-3">
                 {formStep > 1 && (
                   <Button
                     variant="ghost"
@@ -671,6 +782,7 @@ export const PetProfileScreen: React.FC = () => {
                 )}
                 <Button
                   fullWidth
+                  loading={isSaving}
                   onClick={() => {
                     if (formStep < 3) {
                       setFormStep(formStep + 1);
@@ -683,8 +795,13 @@ export const PetProfileScreen: React.FC = () => {
                     (formStep === 2 && (!newPet.breed || !newPet.age || !newPet.weight))
                   }
                 >
-                  {formStep === 3 ? 'Guardar mascota' : 'Siguiente'}
+                  {formStep === 3
+                    ? petFormMode === 'edit'
+                      ? 'Guardar cambios'
+                      : 'Guardar mascota'
+                    : 'Siguiente'}
                 </Button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -712,7 +829,7 @@ export const PetProfileScreen: React.FC = () => {
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <Avatar emoji={selectedPet.avatar} size="md" className="rounded-xl" />
+                  <Avatar {...getPetAvatarProps(selectedPet.avatar)} size="md" className="rounded-xl" />
                   <div>
                     <h2 className="text-xl font-bold">Salud de {selectedPet.name}</h2>
                     <p className="text-sm text-muted-foreground">Historial médico</p>
@@ -750,7 +867,11 @@ export const PetProfileScreen: React.FC = () => {
                                 <h4 className="font-semibold mb-1">{vaccination.name}</h4>
                                 <div className="space-y-1 text-sm text-muted-foreground">
                                   <p>Aplicada: {new Date(vaccination.date).toLocaleDateString()}</p>
-                                  <p>Próxima: {new Date(vaccination.nextDue).toLocaleDateString()}</p>
+                                  {vaccination.nextDue ? (
+                                    <p>Próxima: {new Date(vaccination.nextDue).toLocaleDateString()}</p>
+                                  ) : (
+                                    <p>Sin fecha de vencimiento registrada</p>
+                                  )}
                                 </div>
                                 {vaccination.cardImageUrl && (
                                   <img
@@ -828,11 +949,36 @@ export const PetProfileScreen: React.FC = () => {
               )}
 
               <div className="space-y-4">
-                <Input
-                  label="Nombre de la vacuna"
-                  value={vaccineForm.name}
-                  onChange={(e) => setVaccineForm({ ...vaccineForm, name: e.target.value })}
-                />
+                <div>
+                  <label className="block text-sm font-medium mb-2">Vacuna</label>
+                  <select
+                    value={vaccineForm.name}
+                    onChange={(e) => {
+                      setVaccineForm({ ...vaccineForm, name: e.target.value });
+                      if (e.target.value !== CUSTOM_VACCINE_OPTION) {
+                        setCustomVaccineName('');
+                      }
+                    }}
+                    className="w-full h-12 px-4 rounded-xl bg-input-background border border-input-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  >
+                    <option value="">Selecciona una vacuna</option>
+                    {getVaccineOptionsForSpecies(selectedPet.species).map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {vaccineForm.name === CUSTOM_VACCINE_OPTION && (
+                  <Input
+                    label="Nombre personalizado"
+                    placeholder="Ej. Giardia"
+                    value={customVaccineName}
+                    onChange={(e) => setCustomVaccineName(e.target.value)}
+                  />
+                )}
+
                 <Input
                   label="Fecha de aplicación"
                   type="date"
@@ -840,7 +986,7 @@ export const PetProfileScreen: React.FC = () => {
                   onChange={(e) => setVaccineForm({ ...vaccineForm, date: e.target.value })}
                 />
                 <Input
-                  label="Próxima dosis"
+                  label="Próxima dosis (opcional)"
                   type="date"
                   value={vaccineForm.nextDue}
                   onChange={(e) => setVaccineForm({ ...vaccineForm, nextDue: e.target.value })}
@@ -875,6 +1021,16 @@ export const PetProfileScreen: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={Boolean(petToDelete)}
+        title={`¿Eliminar a ${petToDelete?.name ?? 'esta mascota'}?`}
+        description="Esta acción no se puede deshacer. Se eliminarán también las vacunas registradas y las reservas futuras quedarán sin esta mascota."
+        confirmLabel="Eliminar mascota"
+        loading={isDeletingPet}
+        onConfirm={handleDeletePet}
+        onCancel={() => setPetToDelete(null)}
+      />
     </div>
   );
 };

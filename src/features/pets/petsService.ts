@@ -1,6 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
-import { ensurePetId } from '@/lib/petId';
+import { createPetId, ensurePetId } from '@/lib/petId';
 import { loadStoredUserBundle, saveStoredUserBundle } from '@/lib/userStorage';
 import { mapRowToVaccination } from '@/features/vaccinations';
 import type { Pet, PetRow, VaccinationRow } from '@/types';
@@ -39,8 +39,24 @@ function mapPetToRow(userId: string, pet: Pet) {
     vaccinated: pet.vaccinated,
     gender: pet.gender,
     species: pet.species,
-    avatar_url: avatar.startsWith('http') || avatar.startsWith('data:') ? avatar : avatar.length <= 4 ? avatar : null,
+    avatar_url:
+      avatar.startsWith('http') || avatar.startsWith('data:')
+        ? avatar
+        : avatar.length <= 4
+          ? avatar
+          : null,
   };
+}
+
+function updatePetsInStorage(userId: string, updater: (pets: Pet[]) => Pet[]): Pet[] {
+  const stored = loadStoredUserBundle(userId) ?? {
+    onboardingCompleted: false,
+    profile: null,
+    pets: [],
+  };
+  const pets = updater(stored.pets);
+  saveStoredUserBundle(userId, { ...stored, pets });
+  return pets;
 }
 
 export async function fetchPetsByUserId(
@@ -72,6 +88,115 @@ export async function fetchPetsByUserId(
   };
 }
 
+export type PetInput = Omit<Pet, 'id' | 'vaccinations'> & { id?: string };
+
+export async function createPet(
+  userId: string,
+  input: PetInput
+): Promise<{ pet: Pet | null; error: Error | null }> {
+  const pet: Pet = {
+    id: ensurePetId(input.id ?? createPetId()),
+    name: input.name,
+    avatar: input.avatar,
+    breed: input.breed,
+    age: input.age,
+    weight: input.weight,
+    behaviors: input.behaviors,
+    vaccinated: input.vaccinated ?? false,
+    vaccinations: [],
+    gender: input.gender,
+    species: input.species,
+  };
+
+  if (!isSupabaseConfigured()) {
+    updatePetsInStorage(userId, (pets) => [...pets, pet]);
+    return { pet, error: null };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { pet, error: null };
+  }
+
+  const row = mapPetToRow(userId, pet);
+  const { error } = await supabase.from('pets').insert(row);
+
+  if (error) {
+    return { pet: null, error: new Error(error.message) };
+  }
+
+  const { pets, error: fetchError } = await fetchPetsByUserId(userId);
+  if (fetchError) {
+    return { pet, error: fetchError };
+  }
+
+  return { pet: pets.find((item) => item.id === pet.id) ?? pet, error: null };
+}
+
+export async function updatePet(
+  userId: string,
+  pet: Pet
+): Promise<{ pet: Pet | null; error: Error | null }> {
+  const normalized: Pet = {
+    ...pet,
+    id: ensurePetId(pet.id),
+  };
+
+  if (!isSupabaseConfigured()) {
+    const pets = updatePetsInStorage(userId, (list) =>
+      list.map((item) => (item.id === normalized.id ? normalized : item))
+    );
+    return { pet: pets.find((item) => item.id === normalized.id) ?? normalized, error: null };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { pet: normalized, error: null };
+  }
+
+  const row = mapPetToRow(userId, normalized);
+  const { id, user_id, ...updates } = row;
+  const { error } = await supabase
+    .from('pets')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) {
+    return { pet: null, error: new Error(error.message) };
+  }
+
+  const { pets, error: fetchError } = await fetchPetsByUserId(userId);
+  if (fetchError) {
+    return { pet: normalized, error: fetchError };
+  }
+
+  return { pet: pets.find((item) => item.id === normalized.id) ?? normalized, error: null };
+}
+
+export async function deletePet(
+  userId: string,
+  petId: string
+): Promise<{ error: Error | null }> {
+  if (!isSupabaseConfigured()) {
+    updatePetsInStorage(userId, (pets) => pets.filter((pet) => pet.id !== petId));
+    return { error: null };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: null };
+  }
+
+  const { error } = await supabase
+    .from('pets')
+    .delete()
+    .eq('id', petId)
+    .eq('user_id', userId);
+
+  return { error: error ? new Error(error.message) : null };
+}
+
 export async function replacePetsForUser(
   userId: string,
   pets: Pet[]
@@ -96,21 +221,50 @@ export async function replacePetsForUser(
     return { pets: normalized, error: null };
   }
 
-  const { error: deleteError } = await supabase.from('pets').delete().eq('user_id', userId);
+  const { data: existingRows, error: fetchError } = await supabase
+    .from('pets')
+    .select('id')
+    .eq('user_id', userId);
 
-  if (deleteError) {
-    return { pets: normalized, error: new Error(deleteError.message) };
+  if (fetchError) {
+    return { pets: normalized, error: new Error(fetchError.message) };
   }
 
-  if (normalized.length === 0) {
-    return { pets: [], error: null };
+  const existingIds = new Set((existingRows ?? []).map((row) => row.id as string));
+  const incomingIds = new Set(normalized.map((pet) => pet.id));
+
+  const idsToDelete = [...existingIds].filter((id) => !incomingIds.has(id));
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('pets')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      return { pets: normalized, error: new Error(deleteError.message) };
+    }
   }
 
-  const rows = normalized.map((pet) => mapPetToRow(userId, pet));
-  const { error: insertError } = await supabase.from('pets').insert(rows);
+  for (const pet of normalized) {
+    const row = mapPetToRow(userId, pet);
+    if (existingIds.has(pet.id)) {
+      const { id, user_id, ...updates } = row;
+      const { error: updateError } = await supabase
+        .from('pets')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', userId);
 
-  if (insertError) {
-    return { pets: normalized, error: new Error(insertError.message) };
+      if (updateError) {
+        return { pets: normalized, error: new Error(updateError.message) };
+      }
+    } else {
+      const { error: insertError } = await supabase.from('pets').insert(row);
+      if (insertError) {
+        return { pets: normalized, error: new Error(insertError.message) };
+      }
+    }
   }
 
   return fetchPetsByUserId(userId);
