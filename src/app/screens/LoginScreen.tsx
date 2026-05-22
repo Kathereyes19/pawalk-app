@@ -8,6 +8,7 @@ import { IconButton } from '../components/IconButton';
 import { Divider } from '../components/Divider';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 import { signInWithEmail, validateSignIn } from '@/features/auth';
+import { setMockUserId } from '@/lib/mockUser';
 
 interface LoginScreenProps {
   onBack: () => void;
@@ -38,6 +39,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, onLogin, onSig
     setIsLoading(true);
 
     const result = await signInWithEmail({ email, password });
+
+    if (result.mode === 'mock') {
+      setMockUserId(email);
+    }
 
     if (result.error) {
       setIsLoading(false);

@@ -4,10 +4,13 @@ import fullLogo from '../../imports/Full_logo_version.png';
 
 interface SplashScreenProps {
   onComplete: () => void;
+  /** When false, splash waits before navigating (session + user data bootstrap). */
+  isReady?: boolean;
 }
 
-export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
+export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady = true }) => {
   const [progress, setProgress] = useState(0);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
   useEffect(() => {
     const progressInterval = setInterval(() => {
@@ -20,13 +23,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       });
     }, 30);
 
-    const timer = setTimeout(onComplete, 2800);
+    const minTimer = setTimeout(() => setMinTimeElapsed(true), 1800);
 
     return () => {
       clearInterval(progressInterval);
-      clearTimeout(timer);
+      clearTimeout(minTimer);
     };
-  }, [onComplete]);
+  }, []);
+
+  useEffect(() => {
+    if (!isReady || !minTimeElapsed || progress < 100) return;
+    onComplete();
+  }, [isReady, minTimeElapsed, progress, onComplete]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-primary via-secondary to-accent flex flex-col items-center justify-center overflow-hidden">

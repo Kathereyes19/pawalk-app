@@ -1,1 +1,1 @@
-export { syncPetsForUser } from './petsService';
+export { fetchPetsByUserId, replacePetsForUser, syncPetsForUser } from './petsService';

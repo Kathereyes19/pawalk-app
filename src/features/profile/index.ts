@@ -1,1 +1,7 @@
-export { mapProfileToRow, upsertProfile, markOnboardingComplete } from './profileService';
+export {
+  mapProfileToRow,
+  mapRowToUserProfile,
+  fetchProfile,
+  upsertProfile,
+  markOnboardingComplete,
+} from './profileService';

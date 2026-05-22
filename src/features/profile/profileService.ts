@@ -1,12 +1,12 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
+import { loadStoredUserBundle, saveStoredUserBundle } from '@/lib/userStorage';
 import type { ProfileRow, UserProfile } from '@/types';
 
-/**
- * Maps onboarding form data to a profiles row insert/update payload.
- * Call after sign-up once `profiles` table exists in Supabase.
- */
-export function mapProfileToRow(userId: string, profile: UserProfile): Omit<ProfileRow, 'id' | 'created_at' | 'updated_at'> {
+export function mapProfileToRow(
+  userId: string,
+  profile: UserProfile
+): Omit<ProfileRow, 'id' | 'created_at' | 'updated_at' | 'onboarding_completed'> {
   return {
     user_id: userId,
     full_name: profile.fullName,
@@ -17,7 +17,62 @@ export function mapProfileToRow(userId: string, profile: UserProfile): Omit<Prof
     emergency_phone: profile.emergencyPhone,
     avatar_emoji: profile.avatar,
     language: profile.language,
-    onboarding_completed: false,
+  };
+}
+
+export function mapRowToUserProfile(row: ProfileRow): UserProfile {
+  return {
+    avatar: row.avatar_emoji ?? '👤',
+    fullName: row.full_name ?? '',
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    neighborhood: row.neighborhood ?? '',
+    emergencyContact: row.emergency_contact ?? '',
+    emergencyPhone: row.emergency_phone ?? '',
+    language: (row.language === 'en' ? 'en' : 'es') as 'es' | 'en',
+    notifications: {
+      push: true,
+      email: true,
+      sms: false,
+    },
+  };
+}
+
+export async function fetchProfile(
+  userId: string
+): Promise<{ profile: UserProfile | null; onboardingCompleted: boolean; error: Error | null }> {
+  if (!isSupabaseConfigured()) {
+    const stored = loadStoredUserBundle(userId);
+    return {
+      profile: stored?.profile ?? null,
+      onboardingCompleted: stored?.onboardingCompleted ?? false,
+      error: null,
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { profile: null, onboardingCompleted: false, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    return { profile: null, onboardingCompleted: false, error: new Error(error.message) };
+  }
+
+  if (!data) {
+    return { profile: null, onboardingCompleted: false, error: null };
+  }
+
+  return {
+    profile: mapRowToUserProfile(data as ProfileRow),
+    onboardingCompleted: Boolean((data as ProfileRow).onboarding_completed),
+    error: null,
   };
 }
 
@@ -26,6 +81,15 @@ export async function upsertProfile(
   profile: UserProfile
 ): Promise<{ error: Error | null }> {
   if (!isSupabaseConfigured()) {
+    const stored = loadStoredUserBundle(userId) ?? {
+      onboardingCompleted: false,
+      profile: null,
+      pets: [],
+    };
+    saveStoredUserBundle(userId, {
+      ...stored,
+      profile,
+    });
     return { error: null };
   }
 
@@ -42,6 +106,17 @@ export async function upsertProfile(
 
 export async function markOnboardingComplete(userId: string): Promise<{ error: Error | null }> {
   if (!isSupabaseConfigured()) {
+    const stored = loadStoredUserBundle(userId) ?? {
+      onboardingCompleted: false,
+      profile: null,
+      pets: [],
+    };
+    saveStoredUserBundle(userId, {
+      ...stored,
+      onboardingCompleted: true,
+      profile: stored.profile,
+      pets: stored.pets,
+    });
     return { error: null };
   }
 
@@ -52,7 +127,7 @@ export async function markOnboardingComplete(userId: string): Promise<{ error: E
 
   const { error } = await supabase
     .from('profiles')
-    .update({ onboarding_completed: true })
+    .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
 
   return { error: error ? new Error(error.message) : null };

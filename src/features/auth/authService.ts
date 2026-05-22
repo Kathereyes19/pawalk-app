@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
+import { clearMockUserId } from '@/lib/mockUser';
 import type { AuthResult, SignInCredentials, SignUpCredentials } from '@/types';
 
 function mapAuthError(message: string): AuthResult['error'] {
@@ -81,6 +82,7 @@ export async function signUpWithEmail(
 }
 
 export async function signOut(): Promise<void> {
+  clearMockUserId();
   const supabase = getSupabaseClient();
   if (supabase) {
     await supabase.auth.signOut();

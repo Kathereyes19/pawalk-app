@@ -15,8 +15,13 @@ import {
   Trash2,
   ChevronRight,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useUserData } from '@/contexts/UserDataContext';
+import { replacePetsForUser } from '@/features/pets';
+import { createPetId } from '@/lib/petId';
+import type { Pet as PetType, Vaccination } from '@/types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
@@ -24,81 +29,12 @@ import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 
-interface Pet {
-  id: string;
-  name: string;
-  avatar: string;
-  breed: string;
-  age: number;
-  weight: number;
-  behaviors: string[];
-  vaccinated: boolean;
-  vaccinations?: Vaccination[];
-  gender: 'male' | 'female';
-  species: 'dog' | 'cat';
-}
-
-interface Vaccination {
-  id: string;
-  name: string;
-  date: string;
-  nextDue: string;
-  status: 'current' | 'due-soon' | 'overdue';
-}
+type Pet = PetType & { vaccinations?: Vaccination[] };
 
 export const PetProfileScreen: React.FC = () => {
   const { t } = useLanguage();
-  const [pets, setPets] = useState<Pet[]>([
-    {
-      id: '1',
-      name: 'Max',
-      avatar: '🐕',
-      breed: 'Labrador Retriever',
-      age: 3,
-      weight: 28,
-      behaviors: ['friendly', 'energetic'],
-      vaccinated: true,
-      gender: 'male',
-      species: 'dog',
-      vaccinations: [
-        {
-          id: 'v1',
-          name: 'Antirrábica',
-          date: '2025-12-01',
-          nextDue: '2026-12-01',
-          status: 'current',
-        },
-        {
-          id: 'v2',
-          name: 'Parvovirus',
-          date: '2025-11-15',
-          nextDue: '2026-05-15',
-          status: 'due-soon',
-        },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Luna',
-      avatar: '🐈',
-      breed: 'Siamés',
-      age: 2,
-      weight: 4,
-      behaviors: ['shy', 'trained'],
-      vaccinated: true,
-      gender: 'female',
-      species: 'cat',
-      vaccinations: [
-        {
-          id: 'v3',
-          name: 'Triple Felina',
-          date: '2025-10-20',
-          nextDue: '2026-10-20',
-          status: 'current',
-        },
-      ],
-    },
-  ]);
+  const { pets, setPets, userId, isLoading } = useUserData();
+  const [isSaving, setIsSaving] = useState(false);
 
   const [showAddPet, setShowAddPet] = useState(false);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
@@ -169,9 +105,20 @@ export const PetProfileScreen: React.FC = () => {
     }));
   };
 
-  const handleSavePet = () => {
+  const persistPets = async (nextPets: Pet[]) => {
+    if (!userId) {
+      setPets(nextPets);
+      return;
+    }
+    setIsSaving(true);
+    const { pets: saved, error } = await replacePetsForUser(userId, nextPets);
+    setPets(error ? nextPets : saved);
+    setIsSaving(false);
+  };
+
+  const handleSavePet = async () => {
     const petToSave: Pet = {
-      id: Date.now().toString(),
+      id: createPetId(),
       name: newPet.name || '',
       avatar: newPet.avatar || avatarOptions[newPet.species as 'dog' | 'cat'][0],
       breed: newPet.breed || '',
@@ -184,7 +131,7 @@ export const PetProfileScreen: React.FC = () => {
       vaccinations: [],
     };
 
-    setPets([...pets, petToSave]);
+    await persistPets([...pets, petToSave]);
     setShowAddPet(false);
     setFormStep(1);
     setNewPet({
@@ -208,6 +155,14 @@ export const PetProfileScreen: React.FC = () => {
     if (daysUntilDue < 30) return { label: 'Próxima', variant: 'warning' as const, icon: Calendar };
     return { label: 'Al día', variant: 'success' as const, icon: Check };
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center pb-24 bg-background-secondary">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" aria-label="Cargando mascotas" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto pb-24 bg-background-secondary">

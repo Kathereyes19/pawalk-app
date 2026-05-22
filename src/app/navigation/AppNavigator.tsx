@@ -40,7 +40,12 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'splash':
-        return <SplashScreen onComplete={handlers.handleSplashComplete} />;
+        return (
+          <SplashScreen
+            isReady={navigation.isAppReady}
+            onComplete={handlers.handleSplashComplete}
+          />
+        );
 
       case 'welcome':
         return (

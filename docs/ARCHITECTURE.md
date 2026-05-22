@@ -64,12 +64,18 @@ Exported from `src/app/components/index.ts`.
 
 The `components/ui/` shadcn kit is **not wired** to screens; keep for future admin/desktop surfaces or remove later.
 
-## Authentication
+## Authentication & onboarding persistence
 
 1. Copy `.env.example` → `.env` and set Supabase URL + anon key.
-2. `AuthProvider` listens for session changes (`src/contexts/AuthContext.tsx`).
-3. `LoginScreen` / `SignUpScreen` call `features/auth` — **mock delays preserved** when env is unset.
-4. Onboarding completion calls `upsertProfile`, `syncPetsForUser`, `markOnboardingComplete` when a user id exists.
+2. `AuthProvider` — Supabase session persistence (`src/contexts/AuthContext.tsx`).
+3. `UserDataProvider` — loads `profiles` + `pets` per user (`src/contexts/UserDataContext.tsx`).
+4. `onboarding_completed` on `profiles` controls whether onboarding screens show again.
+5. Splash waits for auth + user data (`isAppReady`) before routing.
+6. **Returning users** → login or cold start with session → `home` (skips onboarding).
+7. **New users** → signup → profile → pets → completion → `home` (once).
+8. Mock mode (no `.env`) uses `localStorage` keyed by mock email id.
+
+Protected screens (`home`, booking flow, etc.) redirect to `welcome` when unauthenticated.
 
 Run `supabase/schema.sql` in your Supabase project before enabling profile/pet sync.
 
