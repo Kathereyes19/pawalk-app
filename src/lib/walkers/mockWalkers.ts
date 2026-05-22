@@ -187,6 +187,10 @@ export const MOCK_WALKERS: Walker[] = [
     homeCategory: 'veterinary',
     acceptedSpecies: ['dog', 'cat'],
     vetServices: ['emergency', 'vaccination', 'grooming'],
+    businessAddress: 'Av. 5N #23-45, San Francisco, Cali',
+    businessHours: 'Lun–Sáb 7:30 AM – 7:00 PM · Dom urgencias',
+    businessPhone: '+57 602 555 0142',
+    galleryEmojis: ['🏥', '🩺', '✂️', '🛁', '🐕', '🐈'],
   },
   {
     id: '10',

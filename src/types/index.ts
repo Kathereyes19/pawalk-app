@@ -34,7 +34,13 @@ export {
   QUICK_FILTERS_BY_CATEGORY,
 } from './homeDiscovery';
 export type { BookingData, BookingFlowState } from './booking';
-export type { Reservation, ReservationRow, ReservationStatus, ReservationTab, ReservationPet } from './reservation';
+export type {
+  Reservation,
+  ReservationRow,
+  ReservationStatus,
+  ReservationTab,
+  ReservationPet,
+} from './reservation';
 
 /** @deprecated import from homeDiscovery */
 export type { WalkerFilterState } from './homeDiscovery';

@@ -128,3 +128,13 @@ alter table public.bookings add column if not exists pet_names text[] not null d
 alter table public.bookings add column if not exists pet_avatars text[] default '{}';
 alter table public.bookings add column if not exists summary_pace_kmh numeric;
 alter table public.bookings add column if not exists summary_calories int;
+
+-- Service category columns (walk / care / veterinary)
+alter table public.bookings add column if not exists service_category text default 'walkers'
+  check (service_category in ('walkers', 'caregivers', 'veterinary'));
+alter table public.bookings add column if not exists service_type text;
+alter table public.bookings add column if not exists selected_service_id text;
+alter table public.bookings add column if not exists selected_service_name text;
+alter table public.bookings add column if not exists care_instructions text;
+alter table public.bookings add column if not exists is_overnight boolean default false;
+alter table public.bookings add column if not exists institution_address text;

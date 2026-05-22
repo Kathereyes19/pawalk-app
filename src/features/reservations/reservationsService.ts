@@ -6,7 +6,17 @@ import {
   saveStoredReservations,
 } from '@/lib/reservationStorage';
 import { isScheduledInFuture } from '@/lib/bookingDates';
-import { isBeforeWalkerAvailability } from '@/lib/walkers/availability';
+import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import {
+  calculateCategoryBookingTotals,
+  getInstitutionMeta,
+  VET_SERVICE_CATALOG,
+  type VetBookableServiceId,
+} from '@/lib/providers/serviceExperience';
+import {
+  normalizeReservationCategory,
+  reservationToProvider,
+} from '@/lib/providers/reservationCategory';
 import {
   calculateBookingTotals,
   computeWalkSummaryMetrics,
@@ -24,13 +34,15 @@ import type {
 } from '@/types';
 
 function normalizeReservation(reservation: Reservation): Reservation {
-  if (reservation.pets?.length) return reservation;
-  return {
-    ...reservation,
-    pets: reservation.petId
-      ? [{ id: reservation.petId, name: reservation.petName }]
-      : [{ id: 'unknown', name: reservation.petName ?? 'Mascota' }],
-  };
+  const withPets = reservation.pets?.length
+    ? reservation
+    : {
+        ...reservation,
+        pets: reservation.petId
+          ? [{ id: reservation.petId, name: reservation.petName }]
+          : [{ id: 'unknown', name: reservation.petName ?? 'Mascota' }],
+      };
+  return normalizeReservationCategory(withPets);
 }
 
 function buildPetsFromRow(row: ReservationRow): ReservationPet[] {
@@ -74,6 +86,13 @@ function mapRowToReservation(row: ReservationRow): Reservation {
     scheduledDate: row.scheduled_date,
     scheduledTime: row.scheduled_time.length === 5 ? row.scheduled_time : row.scheduled_time.slice(0, 5),
     durationMinutes: row.duration_minutes,
+    serviceCategory: row.service_category ?? 'walkers',
+    serviceType: row.service_type ?? null,
+    selectedServiceId: row.selected_service_id ?? null,
+    selectedServiceName: row.selected_service_name ?? null,
+    careInstructions: row.care_instructions ?? null,
+    isOvernight: row.is_overnight ?? false,
+    institutionAddress: row.institution_address ?? null,
     status: row.status,
     servicePrice: Number(row.service_price),
     platformFee: Number(row.platform_fee),
@@ -110,6 +129,13 @@ function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'cr
     scheduled_date: reservation.scheduledDate,
     scheduled_time: reservation.scheduledTime,
     duration_minutes: reservation.durationMinutes,
+    service_category: reservation.serviceCategory ?? 'walkers',
+    service_type: reservation.serviceType ?? null,
+    selected_service_id: reservation.selectedServiceId ?? null,
+    selected_service_name: reservation.selectedServiceName ?? null,
+    care_instructions: reservation.careInstructions ?? null,
+    is_overnight: reservation.isOvernight ?? false,
+    institution_address: reservation.institutionAddress ?? null,
     status: reservation.status,
     service_price: reservation.servicePrice,
     platform_fee: reservation.platformFee,
@@ -265,6 +291,8 @@ export async function createReservation(
   const durationMinutes = input.bookingData.duration ?? 60;
   const scheduledDate = input.bookingData.date ?? new Date().toISOString().slice(0, 10);
   const scheduledTime = input.bookingData.time ?? '10:00';
+  const serviceCategory =
+    input.bookingData.serviceCategory ?? getWalkerHomeCategory(input.walker);
 
   if (!isScheduledInFuture(scheduledDate, scheduledTime)) {
     return {
@@ -283,8 +311,29 @@ export async function createReservation(
   }
 
   const pets = resolveReservationPets(input);
-  const totals = calculateBookingTotals(input.walker.price, durationMinutes, pets.length);
+  const selectedService =
+    serviceCategory === 'veterinary' && input.bookingData.selectedServiceId
+      ? VET_SERVICE_CATALOG[input.bookingData.selectedServiceId as VetBookableServiceId] ?? null
+      : null;
+  const totals =
+    input.bookingData.total != null && input.bookingData.serviceFee != null
+      ? {
+          servicePrice: input.bookingData.serviceFee,
+          platformFee: input.bookingData.platformFee ?? Math.round(input.bookingData.serviceFee * 0.12),
+          insuranceFee: Math.round(input.bookingData.serviceFee * 0.05),
+          totalPrice: input.bookingData.total,
+          petCount: pets.length,
+        }
+      : calculateCategoryBookingTotals(
+          input.walker,
+          serviceCategory,
+          durationMinutes,
+          pets.length,
+          selectedService
+        );
   const now = new Date().toISOString();
+  const institutionMeta =
+    serviceCategory === 'veterinary' ? getInstitutionMeta(input.walker) : null;
 
   const reservation: Reservation = {
     id: ensureReservationId(),
@@ -298,6 +347,14 @@ export async function createReservation(
     scheduledDate,
     scheduledTime,
     durationMinutes,
+    serviceCategory,
+    serviceType: input.walker.serviceType ?? null,
+    selectedServiceId: input.bookingData.selectedServiceId ?? null,
+    selectedServiceName: input.bookingData.selectedServiceName ?? null,
+    careInstructions: input.bookingData.careInstructions ?? null,
+    isOvernight: input.bookingData.isOvernight ?? durationMinutes >= 1440,
+    institutionAddress:
+      input.bookingData.institutionAddress ?? institutionMeta?.address ?? null,
     status: 'scheduled',
     servicePrice: totals.servicePrice,
     platformFee: totals.platformFee,
@@ -433,25 +490,7 @@ export async function completeReservation(
 }
 
 export function reservationToWalker(reservation: Reservation): Walker {
-  return {
-    id: reservation.walkerId,
-    name: reservation.walkerName,
-    avatar: reservation.walkerAvatar,
-    rating: 4.9,
-    reviews: 128,
-    distance: 1.2,
-    price: reservation.servicePrice,
-    verified: true,
-    experience: 3,
-    available: false,
-    responseTime: 5,
-    position: { lat: 3.4516, lng: -76.532 },
-    serviceType: 'dog-walking',
-    acceptedSpecies: ['dog'],
-    acceptedSizes: ['small', 'medium', 'large'],
-    nextAvailableDate: null,
-    nextAvailableTime: null,
-  };
+  return reservationToProvider(reservation);
 }
 
 export {

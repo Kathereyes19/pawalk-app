@@ -1,4 +1,5 @@
-import type { Walker } from './walker';
+import type { HomeServiceCategory } from './homeDiscovery';
+import type { Walker, CaregiverServiceOffer } from './walker';
 import type { ReservationPet } from './reservation';
 
 /** Booking payload passed through checkout → confirmed → tracking */
@@ -7,6 +8,13 @@ export interface BookingData {
   time?: string;
   duration?: number;
   durationLabel?: string;
+  serviceCategory?: HomeServiceCategory;
+  selectedServiceId?: string;
+  selectedServiceName?: string;
+  careType?: CaregiverServiceOffer;
+  careInstructions?: string;
+  isOvernight?: boolean;
+  institutionAddress?: string;
   pets?: ReservationPet[];
   petIds?: string[];
   petId?: string;

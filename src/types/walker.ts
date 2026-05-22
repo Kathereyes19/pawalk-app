@@ -30,4 +30,9 @@ export interface Walker {
   nextAvailableDate?: string | null;
   /** HH:mm — next bookable window start */
   nextAvailableTime?: string | null;
+  /** Institutional / vet profile fields */
+  businessAddress?: string;
+  businessHours?: string;
+  businessPhone?: string;
+  galleryEmojis?: string[];
 }

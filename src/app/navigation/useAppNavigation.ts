@@ -5,6 +5,8 @@ import { useReservations } from '@/contexts/ReservationsContext';
 import { markOnboardingComplete, upsertProfile } from '@/features/profile';
 import { replacePetsForUser } from '@/features/pets';
 import { reservationToWalker, resolveEffectiveStatus } from '@/features/reservations';
+import { getReservationCategory } from '@/lib/providers/reservationCategory';
+import { supportsLiveTracking } from '@/lib/providers/serviceExperience';
 import {
   AUTH_ENTRY_SCREEN,
   loadUserBundle,
@@ -260,6 +262,7 @@ export function useAppNavigation() {
     (reservation: Reservation) => {
       const effective = resolveEffectiveStatus(reservation);
       if (effective !== 'active') return;
+      if (!supportsLiveTracking(getReservationCategory(reservation))) return;
 
       setSelectedWalker(reservationToWalker(reservation));
       setActiveReservation(reservation);

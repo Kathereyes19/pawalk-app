@@ -2,7 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, CreditCard, Building2, CheckCircle2, Shield, Lock, Info, Calendar, Clock, Sparkles, Check, AlertCircle, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { calculateBookingTotals } from '@/features/reservations';
+import {
+  calculateCategoryBookingTotals,
+  formatCareDurationLabel,
+  VET_SERVICE_CATALOG,
+  type VetBookableServiceId,
+} from '@/lib/providers/serviceExperience';
+import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconButton } from '../components/IconButton';
@@ -30,11 +36,33 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   const petCount = Math.max(1, bookingData.pets?.length ?? 1);
+  const category = bookingData.serviceCategory ?? getWalkerHomeCategory(walker);
+  const selectedService =
+    category === 'veterinary' && bookingData.selectedServiceId
+      ? VET_SERVICE_CATALOG[bookingData.selectedServiceId as VetBookableServiceId]
+      : null;
   const totals = useMemo(
-    () => calculateBookingTotals(walker.price, bookingData.duration ?? 60, petCount),
-    [walker.price, bookingData.duration, petCount]
+    () =>
+      bookingData.total != null && bookingData.serviceFee != null
+        ? {
+            servicePrice: bookingData.serviceFee,
+            platformFee: bookingData.platformFee ?? 0,
+            insuranceFee: Math.round((bookingData.serviceFee ?? 0) * 0.05),
+            totalPrice: bookingData.total,
+          }
+        : calculateCategoryBookingTotals(
+            walker,
+            category,
+            bookingData.duration ?? 60,
+            petCount,
+            selectedService
+          ),
+    [bookingData, category, petCount, selectedService, walker]
   );
   const { servicePrice, platformFee, insuranceFee, totalPrice: total } = totals;
+  const durationLabel =
+    bookingData.durationLabel ??
+    formatCareDurationLabel(bookingData.duration ?? 60, bookingData.isOvernight);
 
   const savedCards = [
     {
@@ -135,7 +163,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                     <Clock className="w-3.5 h-3.5" />
                     <span>{bookingData.time}</span>
                     <div className="w-1 h-1 bg-border rounded-full" />
-                    <span>{bookingData.duration} min</span>
+                    <span>{durationLabel}</span>
                   </div>
                 </div>
               </div>
@@ -185,7 +213,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">
-                          Servicio de paseo ({bookingData.duration} min
+                          Servicio ({durationLabel}
                           {petCount > 1 ? ` · ${petCount} mascotas` : ''})
                         </span>
                         <span className="font-medium">${servicePrice.toLocaleString()}</span>
