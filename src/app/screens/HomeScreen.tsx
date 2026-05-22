@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   SlidersHorizontal,
   Star,
@@ -26,22 +26,10 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
-
-interface Walker {
-  id: string;
-  name: string;
-  avatar: string;
-  rating: number;
-  reviews: number;
-  distance: number;
-  price: number;
-  verified: boolean;
-  experience: number;
-  available: boolean;
-  responseTime: number; // in minutes
-  position: { lat: number; lng: number };
-  serviceType?: 'dog-walking' | 'pet-sitting' | 'grooming';
-}
+import { HomeMapCanvas } from '../components/map/HomeMapCanvas';
+import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
+import { MOCK_WALKERS, nudgeWalkerPosition } from '@/lib/walkers/mockWalkers';
+import type { Walker } from '@/types';
 
 interface FilterState {
   distance: '1km' | '3km' | '5km' | null;
@@ -73,114 +61,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     availability: null,
   });
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
-
-  const mockWalkers: Walker[] = [
-    {
-      id: '1',
-      name: 'María González',
-      avatar: '👩🏻',
-      rating: 4.9,
-      reviews: 127,
-      distance: 0.8,
-      price: 15000,
-      verified: true,
-      experience: 5,
-      available: true,
-      responseTime: 2,
-      position: { lat: 3.4516, lng: -76.532 },
-      serviceType: 'dog-walking',
-    },
-    {
-      id: '2',
-      name: 'Carlos Ramírez',
-      avatar: '👨🏽',
-      rating: 4.8,
-      reviews: 89,
-      distance: 1.2,
-      price: 12000,
-      verified: true,
-      experience: 3,
-      available: true,
-      responseTime: 5,
-      position: { lat: 3.4420, lng: -76.5225 },
-      serviceType: 'dog-walking',
-    },
-    {
-      id: '3',
-      name: 'Laura Martínez',
-      avatar: '👩🏼',
-      rating: 5.0,
-      reviews: 203,
-      distance: 1.5,
-      price: 18000,
-      verified: true,
-      experience: 7,
-      available: false,
-      responseTime: 10,
-      position: { lat: 3.4370, lng: -76.5220 },
-      serviceType: 'pet-sitting',
-    },
-    {
-      id: '4',
-      name: 'Juan Pérez',
-      avatar: '👨🏻',
-      rating: 4.7,
-      reviews: 56,
-      distance: 2.1,
-      price: 10000,
-      verified: true,
-      experience: 2,
-      available: true,
-      responseTime: 3,
-      position: { lat: 3.4300, lng: -76.5400 },
-      serviceType: 'dog-walking',
-    },
-    {
-      id: '5',
-      name: 'Ana Silva',
-      avatar: '👩🏽',
-      rating: 4.95,
-      reviews: 178,
-      distance: 2.8,
-      price: 16000,
-      verified: false,
-      experience: 4,
-      available: true,
-      responseTime: 7,
-      position: { lat: 3.4250, lng: -76.5300 },
-      serviceType: 'grooming',
-    },
-    {
-      id: '6',
-      name: 'Diego Morales',
-      avatar: '👨🏼',
-      rating: 4.6,
-      reviews: 42,
-      distance: 3.5,
-      price: 9000,
-      verified: true,
-      experience: 1,
-      available: true,
-      responseTime: 12,
-      position: { lat: 3.4150, lng: -76.5450 },
-      serviceType: 'dog-walking',
-    },
-    {
-      id: '7',
-      name: 'Sofía Torres',
-      avatar: '👩🏻',
-      rating: 5.0,
-      reviews: 312,
-      distance: 4.2,
-      price: 22000,
-      verified: true,
-      experience: 8,
-      available: true,
-      responseTime: 15,
-      position: { lat: 3.4100, lng: -76.5500 },
-      serviceType: 'pet-sitting',
-    },
-  ];
+  const tickRef = useRef(0);
 
   const filterOptions = [
     { id: 'nearby', label: 'Cerca de ti', icon: MapPin },
@@ -189,21 +70,64 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     { id: 'verified', label: 'Verificados', icon: Shield },
   ];
 
-  useEffect(() => {
-    setLiveWalkers(mockWalkers);
+  const applyFilters = (walkers: Walker[]): Walker[] => {
+    let filtered = [...walkers];
 
-    // Simulate live position updates
+    if (filters.distance) {
+      const maxDistance = filters.distance === '1km' ? 1 : filters.distance === '3km' ? 3 : 5;
+      filtered = filtered.filter((w) => w.distance <= maxDistance);
+    }
+
+    if (filters.priceRange) {
+      if (filters.priceRange === 'economy') {
+        filtered = filtered.filter((w) => w.price < 12000);
+      } else if (filters.priceRange === 'standard') {
+        filtered = filtered.filter((w) => w.price >= 12000 && w.price <= 16000);
+      } else if (filters.priceRange === 'premium') {
+        filtered = filtered.filter((w) => w.price > 16000);
+      }
+    }
+
+    if (filters.rating) {
+      const minRating = filters.rating === '4+' ? 4 : filters.rating === '4.5+' ? 4.5 : 5;
+      filtered = filtered.filter((w) => w.rating >= minRating);
+    }
+
+    if (filters.serviceType.length > 0) {
+      filtered = filtered.filter(
+        (w) => w.serviceType && filters.serviceType.includes(w.serviceType)
+      );
+    }
+
+    if (filters.verifiedOnly) {
+      filtered = filtered.filter((w) => w.verified);
+    }
+
+    if (filters.availability === 'now') {
+      filtered = filtered.filter((w) => w.available);
+    }
+
+    return filtered;
+  };
+
+  const filteredWalkers = useMemo(() => applyFilters(liveWalkers), [liveWalkers, filters]);
+  const availableCount = useMemo(
+    () => liveWalkers.filter((w) => w.available).length,
+    [liveWalkers]
+  );
+
+  useEffect(() => {
+    setLiveWalkers(MOCK_WALKERS);
+
     const interval = setInterval(() => {
+      tickRef.current += 1;
       setLiveWalkers((prev) =>
-        prev.map((walker) => ({
+        prev.map((walker, index) => ({
           ...walker,
-          position: {
-            lat: walker.position.lat + (Math.random() - 0.5) * 0.0002,
-            lng: walker.position.lng + (Math.random() - 0.5) * 0.0002,
-          },
+          position: nudgeWalkerPosition(walker.position, tickRef.current + index),
         }))
       );
-    }, 3000);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, []);
@@ -216,53 +140,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     );
   };
 
-  const applyFilters = (walkers: Walker[]): Walker[] => {
-    let filtered = [...walkers];
-
-    // Distance filter
-    if (filters.distance) {
-      const maxDistance = filters.distance === '1km' ? 1 : filters.distance === '3km' ? 3 : 5;
-      filtered = filtered.filter((w) => w.distance <= maxDistance);
-    }
-
-    // Price range filter
-    if (filters.priceRange) {
-      if (filters.priceRange === 'economy') {
-        filtered = filtered.filter((w) => w.price < 12000);
-      } else if (filters.priceRange === 'standard') {
-        filtered = filtered.filter((w) => w.price >= 12000 && w.price <= 16000);
-      } else if (filters.priceRange === 'premium') {
-        filtered = filtered.filter((w) => w.price > 16000);
-      }
-    }
-
-    // Rating filter
-    if (filters.rating) {
-      const minRating = filters.rating === '4+' ? 4 : filters.rating === '4.5+' ? 4.5 : 5;
-      filtered = filtered.filter((w) => w.rating >= minRating);
-    }
-
-    // Service type filter
-    if (filters.serviceType.length > 0) {
-      filtered = filtered.filter((w) =>
-        w.serviceType && filters.serviceType.includes(w.serviceType)
-      );
-    }
-
-    // Verified only filter
-    if (filters.verifiedOnly) {
-      filtered = filtered.filter((w) => w.verified);
-    }
-
-    // Availability filter
-    if (filters.availability === 'now') {
-      filtered = filtered.filter((w) => w.available);
-    }
-    // For 'today' and 'week', we're simulating - in real app would check actual availability
-
-    return filtered;
-  };
-
   const handleOpenFilters = () => {
     setTempFilters(filters);
     setShowFilterModal(true);
@@ -272,7 +149,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     setIsApplyingFilters(true);
     setFilters(tempFilters);
 
-    // Simulate loading
     setTimeout(() => {
       setIsApplyingFilters(false);
       setShowFilterModal(false);
@@ -303,162 +179,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     return count;
   };
 
-  const getWalkerPosition = (walker: Walker, index: number) => {
-    // Calculate position based on simulated lat/lng
-    const baseLeft = 15;
-    const baseTop = 20;
-    return {
-      left: `${baseLeft + (index * 18) + (walker.position.lng % 20)}%`,
-      top: `${baseTop + ((index % 2) * 25) + (walker.position.lat % 15)}%`,
-    };
-  };
-
   return (
     <div className="h-full flex flex-col bg-background-secondary overflow-hidden">
-      {/* Enhanced Map Area */}
       <div className="relative h-[360px] overflow-hidden shrink-0">
-        {/* Map Background with Grid Pattern */}
-        <div className="absolute inset-0 bg-gradient-to-br from-muted/30 via-muted/10 to-muted/30">
-          {/* Grid Pattern */}
-          <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
+        <HomeMapCanvas
+          walkers={liveWalkers}
+          selectedWalkerId={selectedWalker?.id}
+          onSelectWalker={setSelectedWalker}
+          availableCount={availableCount}
+        />
 
-          {/* Street Lines */}
-          {[...Array(3)].map((_, i) => (
-            <motion.div
-              key={`street-${i}`}
-              className="absolute h-0.5 bg-border/30"
-              style={{
-                width: '120%',
-                left: '-10%',
-                top: `${30 + i * 25}%`,
-                transform: `rotate(${-5 + i * 2}deg)`,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Your Location Pin */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-          <motion.div
-            animate={{
-              scale: [1, 1.1],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              repeatType: 'reverse',
-              ease: 'easeInOut',
-            }}
-          >
-            <div className="relative">
-              <div className="w-16 h-16 bg-info rounded-full flex items-center justify-center shadow-xl border-4 border-white dark:border-background">
-                <Navigation className="w-8 h-8 text-white" />
-              </div>
-              {/* Pulse effect */}
-              <motion.div
-                className="absolute inset-0 bg-info rounded-full"
-                animate={{
-                  scale: [1, 2],
-                  opacity: [0.5, 0],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeOut',
-                }}
-              />
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Live Walker Pins */}
-        <AnimatePresence>
-          {liveWalkers.map((walker, index) => {
-            const position = getWalkerPosition(walker, index);
-            return (
-              <motion.button
-                key={walker.id}
-                className="absolute z-10"
-                style={position}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ delay: index * 0.1, type: 'spring', bounce: 0.5 }}
-                onClick={() => setSelectedWalker(walker)}
-                whileTap={{ scale: 0.9 }}
-              >
-                <div className="relative">
-                  {/* Pin */}
-                  <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-4 border-white dark:border-background transition-all ${
-                      walker.available
-                        ? 'bg-primary'
-                        : 'bg-muted opacity-60'
-                    } ${selectedWalker?.id === walker.id ? 'ring-4 ring-primary/30' : ''}`}
-                  >
-                    <span className="text-2xl">{walker.avatar}</span>
-                  </div>
-
-                  {/* Active pulse */}
-                  {walker.available && (
-                    <motion.div
-                      className="absolute inset-0 bg-primary rounded-full -z-10"
-                      animate={{
-                        scale: [1, 1.6],
-                        opacity: [0.6, 0],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: 'easeOut',
-                        delay: index * 0.3,
-                      }}
-                    />
-                  )}
-
-                  {/* Availability badge */}
-                  {walker.available && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-success rounded-full border-2 border-white dark:border-background flex items-center justify-center">
-                      <motion.div
-                        className="w-2 h-2 bg-white rounded-full"
-                        animate={{
-                          opacity: [1, 0.3],
-                        }}
-                        transition={{
-                          duration: 1.5,
-                          repeat: Infinity,
-                          repeatType: 'reverse',
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Price tooltip */}
-                  {selectedWalker?.id === walker.id && (
-                    <motion.div
-                      initial={{ y: 10, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-card px-3 py-1.5 rounded-full shadow-lg border border-border whitespace-nowrap"
-                    >
-                      <span className="text-xs font-bold text-primary">
-                        ${walker.price.toLocaleString()}
-                      </span>
-                    </motion.div>
-                  )}
-                </div>
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
-
-        {/* Search Bar */}
         <div className="absolute top-4 left-4 right-4 z-30">
           <SearchBar
             placeholder={t('home.search')}
@@ -469,37 +199,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
           />
         </div>
 
-        {/* Recenter Button */}
         <IconButton
           variant="default"
           className="absolute bottom-4 right-4 z-30 shadow-xl bg-card/95 backdrop-blur-md"
           onClick={() => {}}
+          aria-label="Centrar mapa"
         >
           <Navigation className="w-5 h-5 text-primary" />
         </IconButton>
-
-        {/* Live Counter */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="absolute bottom-4 left-4 z-30 bg-card/95 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-border"
-        >
-          <div className="flex items-center gap-2">
-            <motion.div
-              className="w-2 h-2 bg-success rounded-full"
-              animate={{
-                opacity: [1, 0.3, 1],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-              }}
-            />
-            <span className="text-sm font-semibold">
-              {liveWalkers.filter((w) => w.available).length} disponibles
-            </span>
-          </div>
-        </motion.div>
       </div>
 
       {/* Filter Chips */}
@@ -533,7 +240,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
         <div>
           <h2 className="text-lg font-bold">{t('home.nearby')}</h2>
           <p className="text-sm text-muted-foreground">
-            {applyFilters(liveWalkers).length} paseadores {getActiveFilterCount() > 0 ? 'encontrados' : 'disponibles'}
+            {filteredWalkers.length} paseadores {getActiveFilterCount() > 0 ? 'encontrados' : 'cerca'}
           </p>
         </div>
         <div className="relative">
@@ -575,7 +282,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
               exit={{ opacity: 0 }}
               className="space-y-2.5"
             >
-              {applyFilters(liveWalkers).length === 0 ? (
+              {filteredWalkers.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -593,7 +300,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                   </Button>
                 </motion.div>
               ) : (
-                applyFilters(liveWalkers)
+                filteredWalkers
                   .sort((a, b) => a.distance - b.distance)
                   .map((walker, index) => (
             <motion.div
@@ -607,58 +314,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                 onClick={() => onWalkerClick(walker)}
                 hoverable
                 variant="elevated"
-                className="relative overflow-hidden"
+                className={`relative overflow-hidden ${!walker.available ? 'opacity-95' : ''}`}
               >
-                {!walker.available && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] z-10 flex items-center justify-center">
-                    <Badge variant="default" size="sm">
-                      No disponible
-                    </Badge>
-                  </div>
-                )}
-
                 <div className="flex gap-4">
-                  {/* Avatar with online indicator */}
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <Avatar emoji={walker.avatar} size="xl" />
-                    {walker.available && (
-                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-success rounded-full border-2 border-card" />
-                    )}
+                    <span
+                      className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${
+                        walker.available ? 'bg-success' : 'bg-muted-foreground/50'
+                      }`}
+                    />
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-base truncate">
-                        {walker.name}
-                      </h3>
-                      {walker.verified && (
-                        <Verified className="w-4 h-4 text-primary fill-primary shrink-0" />
-                      )}
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="font-semibold text-base truncate">{walker.name}</h3>
+                        {walker.verified && (
+                          <Verified className="w-4 h-4 text-primary fill-primary shrink-0" />
+                        )}
+                      </div>
+                      <WalkerAvailabilityBadge walker={walker} size="sm" />
                     </div>
 
                     <div className="flex items-center gap-3 text-sm mb-2.5">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 fill-secondary text-secondary" />
-                        <span className="font-semibold text-foreground">
-                          {walker.rating}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          ({walker.reviews})
-                        </span>
+                        <span className="font-semibold text-foreground">{walker.rating}</span>
+                        <span className="text-xs text-muted-foreground">({walker.reviews})</span>
                       </div>
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <MapPin className="w-3.5 h-3.5" />
-                        <span className="text-xs font-medium">
-                          {walker.distance} km
-                        </span>
+                        <span className="text-xs font-medium">{walker.distance} km</span>
                       </div>
-                      {walker.available && (
+                      {walker.available && walker.responseTime <= 3 && (
+                        <Badge variant="warning" size="sm">
+                          <Zap className="w-3 h-3" />
+                          Rápido
+                        </Badge>
+                      )}
+                      {walker.available && walker.responseTime > 3 && (
                         <div className="flex items-center gap-1 text-success">
                           <Clock className="w-3.5 h-3.5" />
-                          <span className="text-xs font-medium">
-                            ~{walker.responseTime} min
-                          </span>
+                          <span className="text-xs font-medium">~{walker.responseTime} min</span>
                         </div>
                       )}
                     </div>
@@ -668,9 +366,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                         {walker.experience} {t('walker.years')}
                       </Badge>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">
-                          {t('from')}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{t('from')}</p>
                         <p className="font-bold text-primary text-lg">
                           ${walker.price.toLocaleString()}
                         </p>
@@ -678,16 +374,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Quick book indicator */}
-                {walker.available && walker.responseTime <= 3 && (
-                  <div className="absolute top-3 right-3">
-                    <Badge variant="warning" size="sm" className="shadow-md">
-                      <Zap className="w-3 h-3" />
-                      Rápido
-                    </Badge>
-                  </div>
-                )}
               </Card>
             </motion.div>
                   ))
@@ -1033,23 +719,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
             <div className="w-12 h-1 bg-border rounded-full mx-auto mb-4" />
 
             <div className="flex items-center gap-4">
-              <Avatar emoji={selectedWalker.avatar} size="xl" />
-              <div className="flex-1">
+              <div className="relative shrink-0">
+                <Avatar emoji={selectedWalker.avatar} size="xl" />
+                <span
+                  className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${
+                    selectedWalker.available ? 'bg-success' : 'bg-muted-foreground/50'
+                  }`}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-lg">{selectedWalker.name}</h3>
+                  <h3 className="font-bold text-lg truncate">{selectedWalker.name}</h3>
                   {selectedWalker.verified && (
-                    <Verified className="w-4 h-4 text-primary fill-primary" />
+                    <Verified className="w-4 h-4 text-primary fill-primary shrink-0" />
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2 text-sm mb-2">
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-secondary text-secondary" />
                     <span className="font-semibold">{selectedWalker.rating}</span>
                   </div>
                   <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground">
-                    {selectedWalker.distance} km
-                  </span>
+                  <span className="text-muted-foreground">{selectedWalker.distance} km</span>
                   {selectedWalker.available && (
                     <>
                       <span className="text-muted-foreground">•</span>
@@ -1059,15 +750,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                     </>
                   )}
                 </div>
+                <WalkerAvailabilityBadge walker={selectedWalker} size="md" />
               </div>
               <Button
                 size="sm"
+                variant={selectedWalker.available ? 'default' : 'outline'}
                 onClick={(e) => {
                   e.stopPropagation();
                   onWalkerClick(selectedWalker);
                 }}
               >
-                Ver perfil
+                {selectedWalker.available ? 'Reservar' : 'Agendar'}
               </Button>
             </div>
           </motion.div>

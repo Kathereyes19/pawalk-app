@@ -1,16 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { buildUpcomingBookingDates, filterAvailableTimeSlots } from '@/lib/bookingDates';
+import { canBookImmediately, getSuggestedBookingSlot } from '@/lib/walkers/availability';
+import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { IconButton } from '../components/IconButton';
 import { TermsAcceptanceCheckbox } from '../components/booking/TermsAcceptanceCheckbox';
+import type { Walker } from '@/types';
 
 interface BookingScreenProps {
-  walker: any;
+  walker: Walker;
   onBack: () => void;
   onContinue: (bookingData: any) => void;
 }
@@ -27,6 +30,9 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsDetail, setShowTermsDetail] = useState(false);
   const [validationError, setValidationError] = useState<string>('');
+
+  const instantBooking = canBookImmediately(walker);
+  const suggestedSlot = useMemo(() => getSuggestedBookingSlot(walker), [walker]);
 
   const availableDates = useMemo(() => buildUpcomingBookingDates(7), []);
 
@@ -53,13 +59,27 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
 
   React.useEffect(() => {
     if (selectedDate) return;
+
+    if (!instantBooking && suggestedSlot?.date) {
+      setSelectedDate(suggestedSlot.date);
+      if (suggestedSlot.time) {
+        setSelectedTime(suggestedSlot.time);
+      }
+      return;
+    }
+
     const firstAvailable = availableDates.find((entry) =>
       filterAvailableTimeSlots(entry.date, baseTimeSlots).some((slot) => slot.available)
     );
     if (firstAvailable) {
       setSelectedDate(firstAvailable.date);
     }
-  }, [availableDates, baseTimeSlots, selectedDate]);
+  }, [availableDates, baseTimeSlots, selectedDate, instantBooking, suggestedSlot]);
+
+  useEffect(() => {
+    if (instantBooking || !suggestedSlot?.time || selectedTime) return;
+    setSelectedTime(suggestedSlot.time);
+  }, [instantBooking, suggestedSlot, selectedTime]);
 
   const durations = [
     {
@@ -165,6 +185,23 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       </div>
 
       <div className="p-4 space-y-6">
+        {!instantBooking && (
+          <Card className="border-warning/30 bg-warning/10">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="font-semibold text-sm">
+                  Este paseador no está disponible de inmediato
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Puedes agendar para su próximo horario disponible. Revisa la fecha y hora sugeridas abajo.
+                </p>
+                <WalkerAvailabilityBadge walker={walker} size="md" />
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Date Selection */}
         <div>
           <div className="flex items-center justify-between mb-3">
