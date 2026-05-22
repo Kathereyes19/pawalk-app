@@ -34,7 +34,7 @@ export function buildUpcomingBookingDates(count = 7): BookingDateOption[] {
       label: DAY_LABELS_ES[date.getDay()],
       day: String(date.getDate()),
       month: MONTH_LABELS_ES[date.getMonth()],
-      available: index !== count - 1,
+      available: true,
       popular: index === 1 || index === 2,
     };
   });

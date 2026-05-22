@@ -6,6 +6,7 @@ import {
   saveStoredReservations,
 } from '@/lib/reservationStorage';
 import { isScheduledInFuture } from '@/lib/bookingDates';
+import { isBeforeWalkerAvailability } from '@/lib/walkers/availability';
 import {
   calculateBookingTotals,
   parseScheduledAt,
@@ -199,6 +200,15 @@ export async function createReservation(
     return {
       reservation: null,
       error: new Error('La fecha y hora seleccionadas deben ser futuras.'),
+    };
+  }
+
+  if (isBeforeWalkerAvailability(scheduledDate, scheduledTime, input.walker)) {
+    return {
+      reservation: null,
+      error: new Error(
+        'El horario seleccionado es anterior a la disponibilidad del paseador.'
+      ),
     };
   }
 

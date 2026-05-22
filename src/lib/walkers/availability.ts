@@ -1,5 +1,17 @@
-import { buildUpcomingBookingDates, toDateKey } from '@/lib/bookingDates';
+import {
+  buildUpcomingBookingDates,
+  filterAvailableTimeSlots,
+  parseScheduledDateTime,
+  toDateKey,
+  type BookingDateOption,
+} from '@/lib/bookingDates';
 import type { Walker } from '@/types';
+
+export interface BookingTimeSlot {
+  time: string;
+  available: boolean;
+  popular: boolean;
+}
 
 export function formatNextAvailableLabel(
   walker: Walker,
@@ -31,6 +43,90 @@ export function formatNextAvailableLabel(
 
 export function canBookImmediately(walker: Walker): boolean {
   return walker.available;
+}
+
+export function getWalkerEarliestBookable(
+  walker: Walker
+): { date: string; time: string } | null {
+  if (walker.available) return null;
+  if (walker.nextAvailableDate && walker.nextAvailableTime) {
+    return {
+      date: walker.nextAvailableDate,
+      time: walker.nextAvailableTime,
+    };
+  }
+  return getSuggestedBookingSlot(walker);
+}
+
+export function isBeforeWalkerAvailability(
+  dateKey: string,
+  time: string,
+  walker: Walker,
+  now = new Date()
+): boolean {
+  if (walker.available) return false;
+
+  const earliest = getWalkerEarliestBookable(walker);
+  if (!earliest) return false;
+
+  const slotTime = parseScheduledDateTime(dateKey, time).getTime();
+  const earliestTime = parseScheduledDateTime(earliest.date, earliest.time).getTime();
+  if (slotTime < earliestTime) return true;
+
+  return slotTime <= now.getTime();
+}
+
+export function filterTimeSlotsForWalker(
+  dateKey: string,
+  slots: BookingTimeSlot[],
+  walker: Walker,
+  now = new Date()
+): BookingTimeSlot[] {
+  const futureSlots = filterAvailableTimeSlots(dateKey, slots, now);
+  if (walker.available) return futureSlots;
+
+  return futureSlots.map((slot) => ({
+    ...slot,
+    available: slot.available && !isBeforeWalkerAvailability(dateKey, slot.time, walker, now),
+  }));
+}
+
+export function filterDatesForWalker(
+  dates: BookingDateOption[],
+  walker: Walker,
+  baseTimeSlots: BookingTimeSlot[],
+  now = new Date()
+): BookingDateOption[] {
+  return dates.map((dateOption) => {
+    const slots = filterTimeSlotsForWalker(dateOption.date, baseTimeSlots, walker, now);
+    const hasBookableSlot = slots.some((slot) => slot.available);
+    return {
+      ...dateOption,
+      available: dateOption.available && hasBookableSlot,
+    };
+  });
+}
+
+export function getFirstBookableDate(
+  walker: Walker,
+  baseTimeSlots: BookingTimeSlot[],
+  count = 7,
+  now = new Date()
+): BookingDateOption | null {
+  const dates = filterDatesForWalker(buildUpcomingBookingDates(count), walker, baseTimeSlots, now);
+  return dates.find((entry) => entry.available) ?? null;
+}
+
+export function getWalkerAvailabilityValidationMessage(walker: Walker, locale: 'es' | 'en' = 'es'): string {
+  const label = formatNextAvailableLabel(walker, locale);
+  if (locale === 'en') {
+    return label
+      ? `Choose ${label.replace('Next: ', '')} or later.`
+      : 'Choose a future time when this walker is available.';
+  }
+  return label
+    ? `Selecciona ${label.replace('Próximo: ', '')} o un horario posterior.`
+    : 'Selecciona un horario futuro cuando el paseador esté disponible.';
 }
 
 export function getSuggestedBookingSlot(walker: Walker): {

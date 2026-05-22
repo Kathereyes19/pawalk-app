@@ -2,8 +2,15 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { buildUpcomingBookingDates, filterAvailableTimeSlots } from '@/lib/bookingDates';
-import { canBookImmediately, getSuggestedBookingSlot } from '@/lib/walkers/availability';
+import { buildUpcomingBookingDates } from '@/lib/bookingDates';
+import {
+  canBookImmediately,
+  filterDatesForWalker,
+  filterTimeSlotsForWalker,
+  getSuggestedBookingSlot,
+  getWalkerAvailabilityValidationMessage,
+  isBeforeWalkerAvailability,
+} from '@/lib/walkers/availability';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -34,8 +41,6 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const instantBooking = canBookImmediately(walker);
   const suggestedSlot = useMemo(() => getSuggestedBookingSlot(walker), [walker]);
 
-  const availableDates = useMemo(() => buildUpcomingBookingDates(7), []);
-
   const baseTimeSlots = useMemo(
     () => [
       { time: '08:00', available: true, popular: false },
@@ -51,11 +56,27 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
     []
   );
 
-  const effectiveDate = selectedDate || availableDates[0]?.date || '';
-  const timeSlots = useMemo(
-    () => filterAvailableTimeSlots(effectiveDate, baseTimeSlots),
-    [effectiveDate, baseTimeSlots]
+  const availableDates = useMemo(
+    () => filterDatesForWalker(buildUpcomingBookingDates(7), walker, baseTimeSlots),
+    [walker, baseTimeSlots]
   );
+
+  const effectiveDate = selectedDate || availableDates.find((d) => d.available)?.date || '';
+  const timeSlots = useMemo(
+    () => filterTimeSlotsForWalker(effectiveDate, baseTimeSlots, walker),
+    [effectiveDate, baseTimeSlots, walker]
+  );
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime('');
+    setValidationError('');
+  };
+
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    setValidationError('');
+  };
 
   React.useEffect(() => {
     if (selectedDate) return;
@@ -68,18 +89,21 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       return;
     }
 
-    const firstAvailable = availableDates.find((entry) =>
-      filterAvailableTimeSlots(entry.date, baseTimeSlots).some((slot) => slot.available)
-    );
+    const firstAvailable = availableDates.find((entry) => entry.available);
     if (firstAvailable) {
       setSelectedDate(firstAvailable.date);
     }
-  }, [availableDates, baseTimeSlots, selectedDate, instantBooking, suggestedSlot]);
+  }, [availableDates, selectedDate, instantBooking, suggestedSlot]);
 
   useEffect(() => {
-    if (instantBooking || !suggestedSlot?.time || selectedTime) return;
-    setSelectedTime(suggestedSlot.time);
-  }, [instantBooking, suggestedSlot, selectedTime]);
+    if (!selectedDate || !selectedTime) return;
+    const slotStillValid = timeSlots.some(
+      (slot) => slot.time === selectedTime && slot.available
+    );
+    if (!slotStillValid) {
+      setSelectedTime('');
+    }
+  }, [selectedDate, selectedTime, timeSlots]);
 
   const durations = [
     {
@@ -114,6 +138,10 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
     }
     if (!acceptedTerms) {
       setValidationError('Debes aceptar los términos y condiciones');
+      return;
+    }
+    if (isBeforeWalkerAvailability(selectedDate, selectedTime, walker)) {
+      setValidationError(getWalkerAvailabilityValidationMessage(walker));
       return;
     }
 
@@ -225,7 +253,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
             {availableDates.map((dateOption, index) => (
               <motion.button
                 key={dateOption.date}
-                onClick={() => dateOption.available && setSelectedDate(dateOption.date)}
+                onClick={() => dateOption.available && handleDateSelect(dateOption.date)}
                 whileTap={dateOption.available ? { scale: 0.95 } : {}}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -255,6 +283,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
               </motion.button>
             ))}
           </div>
+          {!instantBooking && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Las fechas anteriores a la disponibilidad del paseador aparecen deshabilitadas.
+            </p>
+          )}
         </div>
 
         {/* Time Selection */}
@@ -286,7 +319,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                 {timeSlots.map((slot, index) => (
                   <motion.button
                     key={slot.time}
-                    onClick={() => slot.available && setSelectedTime(slot.time)}
+                    onClick={() => slot.available && handleTimeSelect(slot.time)}
                     whileTap={slot.available ? { scale: 0.95 } : {}}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
