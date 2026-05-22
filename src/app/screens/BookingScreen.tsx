@@ -459,6 +459,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                     setValidationError('');
                   }}
                   label={t('booking.accept')}
+                  acceptedHint={t('booking.accept.confirmed')}
                 />
               </Card>
             </motion.div>
