@@ -4,7 +4,7 @@ import { useUserData } from '@/contexts/UserDataContext';
 import { useReservations } from '@/contexts/ReservationsContext';
 import { markOnboardingComplete, upsertProfile } from '@/features/profile';
 import { replacePetsForUser } from '@/features/pets';
-import { reservationToWalker } from '@/features/reservations';
+import { reservationToWalker, resolveEffectiveStatus } from '@/features/reservations';
 import {
   AUTH_ENTRY_SCREEN,
   loadUserBundle,
@@ -34,14 +34,13 @@ export function useAppNavigation() {
     setOnboardingCompleted,
     refreshUserData,
   } = useUserData();
-  const { bookReservation, setReservationStatus, lastCreatedReservationId, reservations } =
-    useReservations();
+  const { bookReservation, completeReservationWalk } = useReservations();
 
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(INITIAL_SCREEN);
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
   const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
-  const [activeReservationId, setActiveReservationId] = useState<string | null>(null);
+  const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
   const hasBootstrapped = useRef(false);
@@ -201,7 +200,7 @@ export function useAppNavigation() {
     setPets([]);
     setOnboardingCompleted(false);
     setActiveTab('home');
-    setActiveReservationId(null);
+    setActiveReservation(null);
     setBookingData(null);
     setSelectedWalker(null);
     hasBootstrapped.current = true;
@@ -240,32 +239,37 @@ export function useAppNavigation() {
     setCurrentScreen('confirmed');
   }, [selectedWalker, bookingData, resolvedUserId, userPets, bookReservation]);
 
+  const handleViewReservations = useCallback(() => {
+    setActiveTab('bookings');
+    setCurrentScreen(POST_AUTH_HOME);
+  }, []);
+
   const handleViewTracking = useCallback(
-    async (reservation?: Reservation) => {
-      const target =
-        reservation ??
-        reservations.find((item) => item.id === lastCreatedReservationId) ??
-        reservations.find((item) => item.id === activeReservationId);
+    (reservation: Reservation) => {
+      const effective = resolveEffectiveStatus(reservation);
+      if (effective !== 'active') return;
 
-      if (target) {
-        await setReservationStatus(target.id, 'active');
-        setSelectedWalker(reservationToWalker(target));
-        setActiveReservationId(target.id);
-      }
-
+      setSelectedWalker(reservationToWalker(reservation));
+      setActiveReservation(reservation);
       setCurrentScreen('tracking');
     },
-    [
-      reservations,
-      lastCreatedReservationId,
-      activeReservationId,
-      setReservationStatus,
-    ]
+    []
+  );
+
+  const handleWalkComplete = useCallback(
+    async (reservationId: string, summary?: { distanceKm?: number; durationMinutes?: number }) => {
+      await completeReservationWalk(reservationId, summary);
+      setActiveReservation(null);
+      setActiveTab('bookings');
+      setCurrentScreen(POST_AUTH_HOME);
+    },
+    [completeReservationWalk]
   );
 
   const handleBackHome = useCallback(() => {
     setCurrentScreen(POST_AUTH_HOME);
     setActiveTab('home');
+    setActiveReservation(null);
   }, []);
 
   const handleTabChange = useCallback(
@@ -308,7 +312,7 @@ export function useAppNavigation() {
     activeTab,
     selectedWalker,
     bookingData,
-    activeReservationId,
+    activeReservation,
     profileData,
     userPets,
     isAppReady,
@@ -329,7 +333,9 @@ export function useAppNavigation() {
       handleBookWalk,
       handleBookingContinue,
       handleCheckoutConfirm,
+      handleViewReservations,
       handleViewTracking,
+      handleWalkComplete,
       handleBackHome,
       handleTabChange,
       goToScreen,

@@ -51,6 +51,7 @@ const translations: Record<Language, Record<string, string>> = {
     'reservations.refresh': 'Actualizar',
     'reservations.retry': 'Reintentar',
     'reservations.track': 'Ver seguimiento en vivo',
+    'reservations.startsIn': 'Comienza en {minutes} min',
     'reservations.count': '{count} reservas en total',
     'reservations.tab.upcoming': 'Próximas',
     'reservations.tab.active': 'En curso',
@@ -164,6 +165,16 @@ const translations: Record<Language, Record<string, string>> = {
     'booking.accept': 'Acepto los términos y reglas de convivencia',
     'booking.cancel.policy': 'Política de cancelación',
     'booking.rules': 'Reglas de convivencia',
+    'booking.confirmed.title': '¡Reserva confirmada!',
+    'booking.confirmed.subtitle': 'Tu paseo ha sido agendado exitosamente',
+    'booking.confirmed.walker': 'Paseador profesional verificado',
+    'booking.confirmed.date': 'Fecha del paseo',
+    'booking.confirmed.time': 'Hora y duración',
+    'booking.confirmed.note': 'Estado de la reserva',
+    'booking.confirmed.upcoming': 'Aparecerá en Próximas reservas. El seguimiento en vivo se habilitará cuando comience el paseo.',
+    'booking.confirmed.viewReservations': 'Ver mis reservas',
+    'booking.confirmed.backHome': 'Volver al inicio',
+    'booking.confirmed.hint': 'Recibirás recordatorios antes de tu paseo',
 
     // Checkout
     'checkout.summary': 'Resumen',
@@ -179,6 +190,7 @@ const translations: Record<Language, Record<string, string>> = {
     'tracking.eta': 'Tiempo estimado',
     'tracking.emergency': 'Emergencia',
     'tracking.contact.walker': 'Contactar paseador',
+    'tracking.completed': '¡Paseo completado! 🎉',
 
     // Notifications
     'notif.booking.confirmed': 'Reserva confirmada',
@@ -244,6 +256,7 @@ const translations: Record<Language, Record<string, string>> = {
     'reservations.refresh': 'Refresh',
     'reservations.retry': 'Try again',
     'reservations.track': 'View live tracking',
+    'reservations.startsIn': 'Starts in {minutes} min',
     'reservations.count': '{count} total reservations',
     'reservations.tab.upcoming': 'Upcoming',
     'reservations.tab.active': 'Active',
@@ -357,6 +370,16 @@ const translations: Record<Language, Record<string, string>> = {
     'booking.accept': 'I accept the terms and coexistence rules',
     'booking.cancel.policy': 'Cancellation policy',
     'booking.rules': 'Coexistence rules',
+    'booking.confirmed.title': 'Booking confirmed!',
+    'booking.confirmed.subtitle': 'Your walk has been scheduled successfully',
+    'booking.confirmed.walker': 'Verified professional walker',
+    'booking.confirmed.date': 'Walk date',
+    'booking.confirmed.time': 'Time and duration',
+    'booking.confirmed.note': 'Reservation status',
+    'booking.confirmed.upcoming': 'It will appear under Upcoming. Live tracking unlocks when the walk starts.',
+    'booking.confirmed.viewReservations': 'View my reservations',
+    'booking.confirmed.backHome': 'Back to home',
+    'booking.confirmed.hint': 'You will receive reminders before your walk',
 
     // Checkout
     'checkout.summary': 'Summary',
@@ -372,6 +395,7 @@ const translations: Record<Language, Record<string, string>> = {
     'tracking.eta': 'Estimated time',
     'tracking.emergency': 'Emergency',
     'tracking.contact.walker': 'Contact walker',
+    'tracking.completed': 'Walk completed! 🎉',
 
     // Notifications
     'notif.booking.confirmed': 'Booking confirmed',

@@ -202,8 +202,15 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({ onViewTr
               key={reservation.id}
               reservation={reservation}
               locale={language}
+              section={activeTab}
               statusLabel={statusLabel(reservation)}
-              onTrack={activeTab === 'active' ? onViewTracking : undefined}
+              startsInLabel={t('reservations.startsIn')}
+              onTrack={
+                activeTab === 'active' &&
+                resolveEffectiveStatus(reservation) === 'active'
+                  ? onViewTracking
+                  : undefined
+              }
               trackLabel={activeTab === 'active' ? t('reservations.track') : undefined}
             />
           ))}

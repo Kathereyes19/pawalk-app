@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { buildUpcomingBookingDates, filterAvailableTimeSlots } from '@/lib/bookingDates';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
@@ -26,25 +27,38 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [showTermsDetail, setShowTermsDetail] = useState(false);
   const [validationError, setValidationError] = useState<string>('');
 
-  const availableDates = [
-    { date: '2026-05-08', label: 'Vie', day: '8', month: 'May', available: true, popular: false },
-    { date: '2026-05-09', label: 'Sáb', day: '9', month: 'May', available: true, popular: true },
-    { date: '2026-05-10', label: 'Dom', day: '10', month: 'May', available: true, popular: true },
-    { date: '2026-05-11', label: 'Lun', day: '11', month: 'May', available: true, popular: false },
-    { date: '2026-05-12', label: 'Mar', day: '12', month: 'May', available: false, popular: false },
-  ];
+  const availableDates = useMemo(() => buildUpcomingBookingDates(7), []);
 
-  const timeSlots = [
-    { time: '08:00', available: true, popular: false },
-    { time: '09:00', available: true, popular: true },
-    { time: '10:00', available: true, popular: true },
-    { time: '11:00', available: false, popular: false },
-    { time: '14:00', available: true, popular: false },
-    { time: '15:00', available: true, popular: false },
-    { time: '16:00', available: true, popular: true },
-    { time: '17:00', available: true, popular: false },
-    { time: '18:00', available: true, popular: true },
-  ];
+  const baseTimeSlots = useMemo(
+    () => [
+      { time: '08:00', available: true, popular: false },
+      { time: '09:00', available: true, popular: true },
+      { time: '10:00', available: true, popular: true },
+      { time: '11:00', available: true, popular: false },
+      { time: '14:00', available: true, popular: false },
+      { time: '15:00', available: true, popular: false },
+      { time: '16:00', available: true, popular: true },
+      { time: '17:00', available: true, popular: false },
+      { time: '18:00', available: true, popular: true },
+    ],
+    []
+  );
+
+  const effectiveDate = selectedDate || availableDates[0]?.date || '';
+  const timeSlots = useMemo(
+    () => filterAvailableTimeSlots(effectiveDate, baseTimeSlots),
+    [effectiveDate, baseTimeSlots]
+  );
+
+  React.useEffect(() => {
+    if (selectedDate) return;
+    const firstAvailable = availableDates.find((entry) =>
+      filterAvailableTimeSlots(entry.date, baseTimeSlots).some((slot) => slot.available)
+    );
+    if (firstAvailable) {
+      setSelectedDate(firstAvailable.date);
+    }
+  }, [availableDates, baseTimeSlots, selectedDate]);
 
   const durations = [
     {

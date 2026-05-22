@@ -124,14 +124,19 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
           <BookingConfirmedScreen
             walker={selectedWalker}
             bookingData={bookingData}
-            onViewTracking={handlers.handleViewTracking}
+            onViewReservations={handlers.handleViewReservations}
             onBackHome={handlers.handleBackHome}
           />
         );
 
       case 'tracking':
         return (
-          <LiveTrackingScreen walker={selectedWalker} onBack={handlers.handleBackHome} />
+          <LiveTrackingScreen
+            walker={selectedWalker}
+            reservation={navigation.activeReservation}
+            onBack={handlers.handleBackHome}
+            onWalkComplete={handlers.handleWalkComplete}
+          />
         );
 
       default:

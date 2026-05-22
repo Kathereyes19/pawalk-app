@@ -6,20 +6,64 @@ export function parseScheduledAt(reservation: Reservation): Date {
   return new Date(year, (month ?? 1) - 1, day ?? 1, hours ?? 0, minutes ?? 0, 0, 0);
 }
 
+export function getReservationEndAt(reservation: Reservation): Date {
+  const start = parseScheduledAt(reservation);
+  return new Date(start.getTime() + reservation.durationMinutes * 60_000);
+}
+
+/** Effective status based on persisted status + scheduled window. */
 export function resolveEffectiveStatus(
   reservation: Reservation,
   now = new Date()
 ): ReservationStatus {
   if (reservation.status === 'cancelled') return 'cancelled';
   if (reservation.status === 'completed') return 'completed';
-  if (reservation.status === 'active') return 'active';
 
   const start = parseScheduledAt(reservation);
-  const end = new Date(start.getTime() + reservation.durationMinutes * 60_000);
+  const end = getReservationEndAt(reservation);
+
+  if (reservation.status === 'active') {
+    return now >= end ? 'completed' : 'active';
+  }
 
   if (now >= end) return 'completed';
   if (now >= start) return 'active';
   return 'scheduled';
+}
+
+export function getWalkProgress(reservation: Reservation, now = new Date()): number {
+  const effective = resolveEffectiveStatus(reservation, now);
+  if (effective !== 'active') return effective === 'completed' ? 100 : 0;
+
+  const start = reservation.startedAt
+    ? new Date(reservation.startedAt)
+    : parseScheduledAt(reservation);
+  const end = getReservationEndAt(reservation);
+  const total = end.getTime() - start.getTime();
+  if (total <= 0) return 0;
+
+  const elapsed = now.getTime() - start.getTime();
+  return Math.min(100, Math.max(0, (elapsed / total) * 100));
+}
+
+export function getElapsedWalkSeconds(reservation: Reservation, now = new Date()): number {
+  const effective = resolveEffectiveStatus(reservation, now);
+  if (effective === 'scheduled') return 0;
+
+  const start = reservation.startedAt
+    ? new Date(reservation.startedAt)
+    : parseScheduledAt(reservation);
+  const end =
+    effective === 'completed' && reservation.completedAt
+      ? new Date(reservation.completedAt)
+      : now;
+
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+}
+
+export function getMinutesUntilStart(reservation: Reservation, now = new Date()): number {
+  const start = parseScheduledAt(reservation);
+  return Math.max(0, Math.ceil((start.getTime() - now.getTime()) / 60_000));
 }
 
 export function formatReservationDate(date: string, locale: 'es' | 'en'): string {
@@ -46,6 +90,12 @@ export function formatCurrency(amount: number, locale: 'es' | 'en'): string {
     currency: 'COP',
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+export function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 export function calculateBookingTotals(walkerPrice: number, durationMinutes: number) {

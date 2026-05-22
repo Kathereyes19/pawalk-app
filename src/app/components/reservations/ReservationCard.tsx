@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, Navigation, PawPrint } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, PawPrint, Route, Timer } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Avatar } from '../Avatar';
 import { Badge } from '../Badge';
@@ -7,38 +7,58 @@ import { Button } from '../Button';
 import { Card } from '../Card';
 import {
   formatCurrency,
+  formatDuration,
   formatReservationDate,
   formatReservationTime,
+  getMinutesUntilStart,
+  getWalkProgress,
   resolveEffectiveStatus,
 } from '@/features/reservations';
-import type { Reservation } from '@/types';
+import type { Reservation, ReservationTab } from '@/types';
 
 interface ReservationCardProps {
   reservation: Reservation;
   locale: 'es' | 'en';
   statusLabel: string;
+  section: ReservationTab;
   onTrack?: (reservation: Reservation) => void;
   trackLabel?: string;
+  startsInLabel?: string;
 }
 
 export const ReservationCard: React.FC<ReservationCardProps> = ({
   reservation,
   locale,
   statusLabel,
+  section,
   onTrack,
   trackLabel,
+  startsInLabel,
 }) => {
   const effectiveStatus = resolveEffectiveStatus(reservation);
   const isActive = effectiveStatus === 'active';
   const isCompleted = effectiveStatus === 'completed';
+  const isUpcoming = effectiveStatus === 'scheduled';
+  const progress = getWalkProgress(reservation);
+  const minutesUntilStart = getMinutesUntilStart(reservation);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
+      layout
     >
-      <Card padding="md" className={isActive ? 'border-2 border-primary/30 bg-primary/5' : undefined}>
+      <Card
+        padding="md"
+        className={
+          isActive
+            ? 'border-2 border-primary/30 bg-primary/5 shadow-md'
+            : isCompleted
+              ? 'border border-border'
+              : undefined
+        }
+      >
         <div className="flex items-start gap-3">
           <Avatar emoji={reservation.walkerAvatar} size="lg" className="rounded-xl" />
           <div className="flex-1 min-w-0">
@@ -79,32 +99,74 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
               </div>
             </div>
 
+            {isUpcoming && section === 'upcoming' && minutesUntilStart > 0 && startsInLabel && (
+              <p className="text-xs text-info mt-2 font-medium">
+                {startsInLabel.replace('{minutes}', String(minutesUntilStart))}
+              </p>
+            )}
+
+            {isActive && section === 'active' && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                  <span>{Math.round(progress)}% completado</span>
+                  <span>{formatDuration(Math.floor((progress / 100) * reservation.durationMinutes * 60))}</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-primary to-accent"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.6 }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
               <span className="font-bold text-primary">
                 {formatCurrency(reservation.totalPrice, locale)}
               </span>
               {isCompleted && reservation.summaryDistanceKm != null && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
+                  <Route className="w-3.5 h-3.5" />
                   {reservation.summaryDistanceKm} km
                 </span>
               )}
             </div>
 
-            {isActive && onTrack && trackLabel && (
+            {isActive && section === 'active' && onTrack && trackLabel && (
               <Button fullWidth size="md" className="mt-3" onClick={() => onTrack(reservation)}>
                 <Navigation className="w-4 h-4" />
                 {trackLabel}
               </Button>
             )}
 
-            {isCompleted && reservation.completedAt && (
-              <p className="text-xs text-muted-foreground mt-2">
-                {new Date(reservation.completedAt).toLocaleString(
-                  locale === 'en' ? 'en-US' : 'es-CO',
-                  { dateStyle: 'medium', timeStyle: 'short' }
+            {isCompleted && section === 'history' && (
+              <div className="mt-3 p-3 rounded-xl bg-muted/50 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Resumen del paseo
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-4 h-4 text-primary" />
+                    <span>
+                      {reservation.summaryDurationMinutes ?? reservation.durationMinutes} min
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    <span>{reservation.summaryDistanceKm ?? '—'} km</span>
+                  </div>
+                </div>
+                {reservation.completedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(reservation.completedAt).toLocaleString(
+                      locale === 'en' ? 'en-US' : 'es-CO',
+                      { dateStyle: 'medium', timeStyle: 'short' }
+                    )}
+                  </p>
                 )}
-              </p>
+              </div>
             )}
           </div>
         </div>

@@ -13,6 +13,7 @@ import {
   createReservation,
   fetchReservationsByUserId,
   updateReservationStatus,
+  completeReservation,
   type CreateReservationInput,
 } from '@/features/reservations';
 import type { Reservation, ReservationStatus } from '@/types';
@@ -27,6 +28,10 @@ export interface ReservationsContextValue {
   setReservationStatus: (
     reservationId: string,
     status: ReservationStatus
+  ) => Promise<{ error: string | null }>;
+  completeReservationWalk: (
+    reservationId: string,
+    summary?: { distanceKm?: number; durationMinutes?: number }
   ) => Promise<{ error: string | null }>;
   clearLastCreatedReservation: () => void;
 }
@@ -71,6 +76,16 @@ export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ childr
     void refreshReservations();
   }, [authLoading, session, userId, refreshReservations]);
 
+  useEffect(() => {
+    if (!userId || authLoading) return;
+
+    const interval = window.setInterval(() => {
+      void refreshReservations();
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [userId, authLoading, refreshReservations]);
+
   const bookReservation = useCallback(
     async (input: CreateReservationInput) => {
       if (!userId) {
@@ -106,6 +121,26 @@ export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ childr
     [userId, refreshReservations]
   );
 
+  const completeReservationWalk = useCallback(
+    async (
+      reservationId: string,
+      summary?: { distanceKm?: number; durationMinutes?: number }
+    ) => {
+      if (!userId) {
+        return { error: 'No authenticated user' };
+      }
+
+      const { error: completeError } = await completeReservation(userId, reservationId, summary);
+      if (completeError) {
+        return { error: completeError.message };
+      }
+
+      await refreshReservations();
+      return { error: null };
+    },
+    [userId, refreshReservations]
+  );
+
   const clearLastCreatedReservation = useCallback(() => {
     setLastCreatedReservationId(null);
   }, []);
@@ -119,6 +154,7 @@ export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ childr
       refreshReservations,
       bookReservation,
       setReservationStatus,
+      completeReservationWalk,
       clearLastCreatedReservation,
     }),
     [
@@ -130,6 +166,7 @@ export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ childr
       refreshReservations,
       bookReservation,
       setReservationStatus,
+      completeReservationWalk,
       clearLastCreatedReservation,
     ]
   );

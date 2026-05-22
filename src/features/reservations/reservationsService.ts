@@ -5,6 +5,7 @@ import {
   loadStoredReservations,
   saveStoredReservations,
 } from '@/lib/reservationStorage';
+import { isScheduledInFuture } from '@/lib/bookingDates';
 import {
   calculateBookingTotals,
   parseScheduledAt,
@@ -77,7 +78,7 @@ function applyAutoStatus(reservation: Reservation, now = new Date()): Reservatio
   const next: Reservation = { ...reservation, status: effective, updatedAt: now.toISOString() };
 
   if (effective === 'active' && !next.startedAt) {
-    next.startedAt = now.toISOString();
+    next.startedAt = parseScheduledAt(reservation).toISOString();
   }
 
   if (effective === 'completed' && !next.completedAt) {
@@ -117,7 +118,18 @@ async function syncReservationUpdates(
     return updated;
   }
 
-  const changed = updated.filter((item, index) => item.status !== reservations[index]?.status);
+  const changed = updated.filter((item) => {
+    const original = reservations.find((entry) => entry.id === item.id);
+    if (!original) return true;
+    return (
+      original.status !== item.status ||
+      original.startedAt !== item.startedAt ||
+      original.completedAt !== item.completedAt ||
+      original.summaryDistanceKm !== item.summaryDistanceKm ||
+      original.summaryDurationMinutes !== item.summaryDurationMinutes
+    );
+  });
+
   for (const reservation of changed) {
     await supabase
       .from('bookings')
@@ -180,6 +192,16 @@ export async function createReservation(
   input: CreateReservationInput
 ): Promise<{ reservation: Reservation | null; error: Error | null }> {
   const durationMinutes = input.bookingData.duration ?? 60;
+  const scheduledDate = input.bookingData.date ?? new Date().toISOString().slice(0, 10);
+  const scheduledTime = input.bookingData.time ?? '10:00';
+
+  if (!isScheduledInFuture(scheduledDate, scheduledTime)) {
+    return {
+      reservation: null,
+      error: new Error('La fecha y hora seleccionadas deben ser futuras.'),
+    };
+  }
+
   const totals = calculateBookingTotals(input.walker.price, durationMinutes);
   const now = new Date().toISOString();
 
@@ -191,8 +213,8 @@ export async function createReservation(
     walkerAvatar: input.walker.avatar,
     petId: input.petId ?? null,
     petName: input.petName ?? input.bookingData.petName ?? 'Mascota',
-    scheduledDate: input.bookingData.date ?? new Date().toISOString().slice(0, 10),
-    scheduledTime: input.bookingData.time ?? '10:00',
+    scheduledDate,
+    scheduledTime,
     durationMinutes,
     status: 'scheduled',
     servicePrice: totals.servicePrice,
@@ -232,19 +254,24 @@ export async function updateReservationStatus(
   status: ReservationStatus
 ): Promise<{ error: Error | null }> {
   const now = new Date().toISOString();
+  const existing = loadStoredReservations(userId).find((item) => item.id === reservationId);
+
   const patch: Partial<Reservation> = { status, updatedAt: now };
 
   if (status === 'active') {
-    patch.startedAt = now;
+    patch.startedAt = existing?.startedAt ?? now;
   }
 
   if (status === 'completed') {
     patch.completedAt = now;
+    patch.summaryDurationMinutes = existing?.summaryDurationMinutes ?? existing?.durationMinutes;
+    patch.summaryDistanceKm =
+      existing?.summaryDistanceKm ?? Number((1.8 + Math.random() * 1.5).toFixed(1));
   }
 
   if (!isSupabaseConfigured()) {
-    const existing = loadStoredReservations(userId);
-    const next = existing.map((item) =>
+    const all = loadStoredReservations(userId);
+    const next = all.map((item) =>
       item.id === reservationId ? { ...item, ...patch } : item
     );
     saveStoredReservations(userId, next);
@@ -258,8 +285,57 @@ export async function updateReservationStatus(
     .from('bookings')
     .update({
       status,
-      started_at: status === 'active' ? now : undefined,
-      completed_at: status === 'completed' ? now : undefined,
+      started_at: status === 'active' ? patch.startedAt : undefined,
+      completed_at: status === 'completed' ? patch.completedAt : undefined,
+      summary_distance_km: status === 'completed' ? patch.summaryDistanceKm : undefined,
+      summary_duration_minutes: status === 'completed' ? patch.summaryDurationMinutes : undefined,
+      updated_at: now,
+    })
+    .eq('id', reservationId)
+    .eq('user_id', userId);
+
+  return { error: error ? new Error(error.message) : null };
+}
+
+export async function completeReservation(
+  userId: string,
+  reservationId: string,
+  summary?: { distanceKm?: number; durationMinutes?: number }
+): Promise<{ error: Error | null }> {
+  const now = new Date().toISOString();
+  const existing = loadStoredReservations(userId).find((item) => item.id === reservationId);
+
+  const patch: Partial<Reservation> = {
+    status: 'completed',
+    completedAt: now,
+    updatedAt: now,
+    summaryDurationMinutes:
+      summary?.durationMinutes ?? existing?.summaryDurationMinutes ?? existing?.durationMinutes,
+    summaryDistanceKm:
+      summary?.distanceKm ??
+      existing?.summaryDistanceKm ??
+      Number((1.8 + Math.random() * 1.5).toFixed(1)),
+  };
+
+  if (!isSupabaseConfigured()) {
+    const all = loadStoredReservations(userId);
+    const next = all.map((item) =>
+      item.id === reservationId ? { ...item, ...patch } : item
+    );
+    saveStoredReservations(userId, next);
+    return { error: null };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) return { error: null };
+
+  const { error } = await supabase
+    .from('bookings')
+    .update({
+      status: 'completed',
+      completed_at: now,
+      summary_distance_km: patch.summaryDistanceKm,
+      summary_duration_minutes: patch.summaryDurationMinutes,
       updated_at: now,
     })
     .eq('id', reservationId)

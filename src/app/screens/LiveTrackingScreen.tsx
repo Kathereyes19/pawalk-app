@@ -1,35 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Phone, MessageSquare, AlertCircle, MapPin, Clock, Navigation, Play, Pause, Camera, Heart, CheckCircle2, TrendingUp, Shield, Zap, Activity } from 'lucide-react';
+import { ArrowLeft, Phone, MessageSquare, AlertCircle, MapPin, Clock, Navigation, Play, Pause, Camera, Heart, CheckCircle2, TrendingUp, Shield, Zap, Activity, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getElapsedWalkSeconds, getWalkProgress } from '@/features/reservations';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconButton } from '../components/IconButton';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
+import type { Reservation } from '@/types';
 
 interface LiveTrackingScreenProps {
   walker: any;
+  reservation?: Reservation | null;
   onBack: () => void;
+  onWalkComplete?: (reservationId: string, summary?: { distanceKm?: number; durationMinutes?: number }) => void;
 }
 
 export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   walker,
+  reservation,
   onBack,
+  onWalkComplete,
 }) => {
   const { t } = useLanguage();
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const [walkStatus, setWalkStatus] = useState<'on-way' | 'started' | 'break' | 'completed'>('on-way');
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [walkStatus, setWalkStatus] = useState<'on-way' | 'started' | 'break' | 'completed'>(
+    reservation ? 'started' : 'on-way'
+  );
+  const [elapsedTime, setElapsedTime] = useState(() =>
+    reservation ? getElapsedWalkSeconds(reservation) : 0
+  );
   const [eta, setEta] = useState(5);
-  const [distance, setDistance] = useState(0);
+  const [distance, setDistance] = useState(
+    reservation?.summaryDistanceKm ? reservation.summaryDistanceKm * 0.4 : 0
+  );
   const [currentSpeed, setCurrentSpeed] = useState(4.2);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationText, setNotificationText] = useState('');
-  const [walkerPosition, setWalkerPosition] = useState(0);
+  const [walkerPosition, setWalkerPosition] = useState(() =>
+    reservation ? getWalkProgress(reservation) : 0
+  );
   const [photos, setPhotos] = useState<number>(0);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [heartRate, setHeartRate] = useState(85);
+  const hasCompletedRef = useRef(false);
+
+  const targetDurationSeconds = useMemo(
+    () => (reservation?.durationMinutes ?? 60) * 60,
+    [reservation?.durationMinutes]
+  );
+
+  const walkProgress = useMemo(() => {
+    if (!reservation) return walkerPosition;
+    return Math.max(getWalkProgress(reservation), walkerPosition);
+  }, [reservation, walkerPosition]);
 
   // Simulate map loading
   useEffect(() => {
@@ -40,7 +65,61 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    // Simulate walk progression
+    if (!reservation) return;
+
+    const syncTimer = setInterval(() => {
+      setElapsedTime(getElapsedWalkSeconds(reservation));
+      setWalkerPosition((prev) => Math.max(prev, getWalkProgress(reservation)));
+    }, 5000);
+
+    return () => clearInterval(syncTimer);
+  }, [reservation]);
+
+  useEffect(() => {
+    if (walkStatus !== 'started' && walkStatus !== 'break') return;
+
+    const moveTimer = setInterval(() => {
+      setWalkerPosition((prev) => {
+        const increment = 100 / (targetDurationSeconds / 2);
+        return Math.min(100, prev + increment);
+      });
+      setDistance((prev) => prev + 0.02);
+    }, 2000);
+
+    return () => clearInterval(moveTimer);
+  }, [walkStatus, targetDurationSeconds]);
+
+  useEffect(() => {
+    if (walkStatus !== 'started' && walkStatus !== 'break') return;
+    if (walkerPosition < 100 && elapsedTime < targetDurationSeconds) return;
+    if (hasCompletedRef.current) return;
+
+    hasCompletedRef.current = true;
+    setWalkStatus('completed');
+    setNotificationText(t('tracking.completed'));
+    setShowNotification(true);
+
+    if (reservation && onWalkComplete) {
+      onWalkComplete(reservation.id, {
+        distanceKm: Number(distance.toFixed(1)),
+        durationMinutes: Math.round(elapsedTime / 60),
+      });
+    }
+  }, [
+    walkStatus,
+    walkerPosition,
+    elapsedTime,
+    targetDurationSeconds,
+    reservation,
+    onWalkComplete,
+    distance,
+    t,
+  ]);
+
+  useEffect(() => {
+    // Simulate walk progression when no reservation context
+    if (reservation) return;
+
     const statusTimer = setTimeout(() => {
       if (walkStatus === 'on-way') {
         setWalkStatus('started');
@@ -51,9 +130,11 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
     }, 5000);
 
     return () => clearTimeout(statusTimer);
-  }, [walkStatus]);
+  }, [walkStatus, reservation]);
 
   useEffect(() => {
+    if (reservation) return;
+
     // Update elapsed time when walk is started
     if (walkStatus === 'started' || walkStatus === 'break') {
       const timer = setInterval(() => {
@@ -74,6 +155,8 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   }, [walkStatus, eta]);
 
   useEffect(() => {
+    if (reservation) return;
+
     // Simulate walker movement
     if (walkStatus === 'started') {
       const moveTimer = setInterval(() => {
@@ -128,7 +211,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   ];
 
   const getCurrentPosition = () => {
-    const progress = walkerPosition / 100;
+    const progress = walkProgress / 100;
     const index = Math.floor(progress * (walkerPath.length - 1));
     const nextIndex = Math.min(index + 1, walkerPath.length - 1);
     const segmentProgress = (progress * (walkerPath.length - 1)) - index;
@@ -235,7 +318,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
             strokeLinecap="round"
             fill="none"
             initial={{ pathLength: 0 }}
-            animate={{ pathLength: walkerPosition / 100 }}
+            animate={{ pathLength: walkProgress / 100 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           />
 
@@ -249,7 +332,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
             fill="none"
             initial={{ pathLength: 0 }}
             animate={{
-              pathLength: walkerPosition / 100,
+              pathLength: walkProgress / 100,
               strokeDashoffset: [0, -20]
             }}
             transition={{
@@ -290,7 +373,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
                 cx={`${point.x}%`}
                 cy={`${point.y}%`}
                 r="4"
-                fill={walkerPosition / 100 > (i + 2) / (walkerPath.length - 1) ? '#10B981' : '#D1D5DB'}
+                fill={walkProgress / 100 > (i + 2) / (walkerPath.length - 1) ? '#10B981' : '#D1D5DB'}
                 className="transition-all duration-500"
               />
             </g>
@@ -465,6 +548,12 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
 
                     {(walkStatus === 'started' || walkStatus === 'break') && (
                       <div className="flex items-center gap-3 text-sm mt-1">
+                        {reservation && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1 mr-1">
+                            <PawPrint className="w-3.5 h-3.5" />
+                            {reservation.petName}
+                          </span>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <div className="flex items-center gap-1 text-primary font-semibold">
                             <Clock className="w-3.5 h-3.5" />
