@@ -9,6 +9,8 @@ interface ProfileInfoRowProps {
   placeholder?: string;
   onClick?: () => void;
   className?: string;
+  /** When true, renders the icon without the default square icon container (e.g. for Avatar) */
+  bareIcon?: boolean;
 }
 
 export const ProfileInfoRow: React.FC<ProfileInfoRowProps> = ({
@@ -18,15 +20,20 @@ export const ProfileInfoRow: React.FC<ProfileInfoRowProps> = ({
   placeholder = '—',
   onClick,
   className,
+  bareIcon = false,
 }) => {
   const displayValue = value?.trim() ? value : placeholder;
   const isInteractive = Boolean(onClick);
 
   const content = (
     <>
-      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
-        {icon}
-      </div>
+      {bareIcon ? (
+        <div className="shrink-0">{icon}</div>
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+          {icon}
+        </div>
+      )}
       <div className="flex-1 min-w-0 text-left">
         <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
         <p className={cn('text-sm font-medium truncate', !value?.trim() && 'text-muted-foreground')}>

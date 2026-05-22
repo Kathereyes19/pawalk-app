@@ -21,8 +21,8 @@ export const CartItemRow: React.FC<CartItemRowProps> = ({
   return (
     <Card padding="md" className="border border-border overflow-hidden">
       <div className="flex gap-3">
-        <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border border-border">
-          <ProductImage product={item} size="thumb" className="w-full h-full" />
+        <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 border border-border flex items-center justify-center">
+          <ProductImage product={item} size="thumb" className="w-full h-full min-h-0" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">

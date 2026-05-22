@@ -232,7 +232,6 @@ export const OnboardingPetSetupScreen: React.FC<OnboardingPetSetupScreenProps> =
                           id: pet.id,
                         })}
                         size="xl"
-                        className="rounded-2xl"
                       />
                       <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-card border-2 border-background rounded-full flex items-center justify-center">
                         <span className="text-xs">{pet.gender === 'male' ? '♂️' : '♀️'}</span>

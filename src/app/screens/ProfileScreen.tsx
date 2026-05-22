@@ -270,7 +270,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <Avatar
                   {...userAvatarProps}
                   size="2xl"
-                  className="rounded-2xl mb-4"
+                  className="mb-4"
                 />
                 <h2 className="text-xl font-bold">{displayProfile.fullName || t('profile.notSet')}</h2>
                 <p className="text-sm text-muted-foreground mt-1">{displayProfile.email}</p>
@@ -344,6 +344,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   {pets.slice(0, 3).map((pet) => (
                     <ProfileInfoRow
                       key={pet.id}
+                      bareIcon
                       icon={
                         <Avatar
                           {...getPetAvatarProps({
@@ -353,7 +354,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             id: pet.id,
                           })}
                           size="sm"
-                          className="rounded-lg"
                         />
                       }
                       label={pet.species === 'cat' ? t('pet.cat') : t('pet.dog')}
@@ -481,7 +481,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   <Avatar
                     {...draftAvatarProps}
                     size="2xl"
-                    className="rounded-2xl"
                   />
                   <label className="absolute -bottom-1 -right-1 w-10 h-10 bg-primary rounded-full flex items-center justify-center cursor-pointer shadow-lg">
                     <Camera className="w-5 h-5 text-primary-foreground" />

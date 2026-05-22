@@ -45,7 +45,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({
         alt={avatarProps.alt}
         variant="marketplace"
         size={iconSizes[size]}
-        className="rounded-2xl shadow-md ring-4 ring-background/80"
+        className="shadow-md ring-4 ring-background/80"
       />
     </div>
   );

@@ -273,7 +273,7 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
                     key={pet.id}
                     className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40"
                   >
-                    <Avatar {...getPetAvatarProps({ avatar: pet.avatar, name: pet.name, id: pet.id })} size="md" className="rounded-lg" />
+                    <Avatar {...getPetAvatarProps({ avatar: pet.avatar, name: pet.name, id: pet.id })} size="md" />
                     <span className="font-medium">{pet.name}</span>
                   </div>
                 ))}
@@ -294,7 +294,7 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
               {category === 'veterinary' ? 'Centro' : category === 'caregivers' ? 'Cuidador' : 'Paseador'}
             </h2>
             <div className="flex items-center gap-3">
-              <Avatar {...providerAvatar} size="xl" className="rounded-xl" />
+              <Avatar {...providerAvatar} size="xl" />
               <div>
                 <p className="font-semibold text-lg">{reservation.walkerName}</p>
                 <p className="text-sm text-muted-foreground">

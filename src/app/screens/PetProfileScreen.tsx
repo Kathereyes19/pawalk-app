@@ -428,7 +428,7 @@ export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenRemind
                 <div className="flex gap-4 mb-4">
                   {/* Pet Avatar */}
                   <div className="relative">
-                    <Avatar {...getPetAvatarProps(pet)} size="2xl" className="rounded-2xl" />
+                    <Avatar {...getPetAvatarProps(pet)} size="2xl" />
                     <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-card border-2 border-background rounded-full flex items-center justify-center">
                       <span className="text-xs">{pet.gender === 'male' ? '♂️' : '♀️'}</span>
                     </div>
@@ -820,7 +820,7 @@ export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenRemind
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <Avatar {...getPetAvatarProps(selectedPet)} size="md" className="rounded-xl" />
+                  <Avatar {...getPetAvatarProps(selectedPet)} size="md" />
                   <div>
                     <h2 className="text-xl font-bold">Salud de {selectedPet.name}</h2>
                     <p className="text-sm text-muted-foreground">Historial médico</p>

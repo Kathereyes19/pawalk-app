@@ -183,7 +183,6 @@ export const PersonalProfileSetupScreen: React.FC<PersonalProfileSetupScreenProp
                       fullName: profileData.fullName,
                     })}
                     size="2xl"
-                    className="rounded-2xl"
                   />
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground mb-2">

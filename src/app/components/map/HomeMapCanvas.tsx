@@ -70,9 +70,7 @@ function WalkerPin({
         <div
           className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-[3px] border-white transition-all overflow-hidden ${
             walker.available ? styles.available : styles.unavailable
-          } ${!walker.available ? 'opacity-80' : ''} ${isSelected ? 'ring-4 ring-primary/35 scale-110' : ''} ${
-            isClinic ? 'rounded-2xl' : 'rounded-full'
-          }`}
+          } ${!walker.available ? 'opacity-80' : ''} ${isSelected ? 'ring-4 ring-primary/35 scale-110' : ''}`}
         >
           <span className="text-xl leading-none" aria-hidden>
             {pinEmoji}
