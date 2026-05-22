@@ -17,3 +17,4 @@ export { BookingConfirmedScreen } from './BookingConfirmedScreen';
 export { LiveTrackingScreen } from './LiveTrackingScreen';
 export { NotificationsScreen } from './NotificationsScreen';
 export { ProfileScreen } from './ProfileScreen';
+export { ReservationsScreen } from './ReservationsScreen';

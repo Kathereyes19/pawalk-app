@@ -13,6 +13,7 @@ import {
   PersonalProfileSetupScreen,
   PetProfileScreen,
   ProfileScreen,
+  ReservationsScreen,
   SignUpScreen,
   WalkerProfileScreen,
   WelcomeScreen,
@@ -144,19 +145,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return null;
 
       case 'bookings':
-        return (
-          <div className="h-full flex items-center justify-center p-8 text-center overflow-hidden">
-            <div className="pb-20">
-              <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-5xl">📅</span>
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Mis Reservas</h2>
-              <p className="text-muted-foreground">
-                Tus paseos programados aparecerán aquí
-              </p>
-            </div>
-          </div>
-        );
+        return <ReservationsScreen onViewTracking={handlers.handleViewTracking} />;
 
       case 'pets':
         return <PetProfileScreen />;
