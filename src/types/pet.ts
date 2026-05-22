@@ -4,6 +4,7 @@ export interface Vaccination {
   date: string;
   nextDue: string;
   status: 'current' | 'due-soon' | 'overdue';
+  cardImageUrl?: string;
 }
 
 export interface Pet {
@@ -20,7 +21,19 @@ export interface Pet {
   species: 'dog' | 'cat';
 }
 
-/** Row shape for Supabase `pets` (extend when migrations exist) */
+/** Row shape for Supabase `pet_vaccinations` */
+export interface VaccinationRow {
+  id: string;
+  pet_id: string;
+  user_id: string;
+  name: string;
+  administered_date: string | null;
+  next_due_date: string | null;
+  card_image_url: string | null;
+  created_at?: string;
+}
+
+/** Row shape for Supabase `pets` */
 export interface PetRow {
   id: string;
   user_id: string;

@@ -1,6 +1,7 @@
 /** Shape produced by PersonalProfileSetupScreen → maps to `profiles` table */
 export interface UserProfile {
   avatar: string;
+  avatarUrl?: string | null;
   fullName: string;
   phone: string;
   email: string;
@@ -26,6 +27,7 @@ export interface ProfileRow {
   emergency_contact: string | null;
   emergency_phone: string | null;
   avatar_emoji: string | null;
+  avatar_url: string | null;
   language: string | null;
   onboarding_completed: boolean;
   created_at?: string;

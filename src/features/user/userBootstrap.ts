@@ -1,5 +1,6 @@
 import { fetchProfile } from '@/features/profile';
 import { fetchPetsByUserId } from '@/features/pets';
+import { hasPendingOnboarding } from '@/lib/onboardingSession';
 import type { AppScreen } from '@/navigation';
 import { POST_AUTH_HOME } from '@/navigation';
 import type { Pet, UserProfile } from '@/types';
@@ -23,23 +24,34 @@ export async function loadUserBundle(userId: string): Promise<UserBundle> {
   };
 }
 
+/** Unauthenticated app entry */
+export const AUTH_ENTRY_SCREEN: AppScreen = 'login';
+
 /**
- * Where to send the user after login, cold start, or splash (when authenticated).
+ * Returning users / completed onboarding — always home when flag is true.
  */
-export function resolvePostAuthScreen(bundle: UserBundle): AppScreen {
+export function resolveAuthenticatedScreen(bundle: UserBundle): AppScreen {
   if (bundle.onboardingCompleted) {
     return POST_AUTH_HOME;
   }
 
-  if (!bundle.profile?.fullName) {
-    return 'profile-setup';
+  if (hasPendingOnboarding()) {
+    return 'welcome';
   }
 
-  if (bundle.pets.length === 0) {
-    return 'pet-setup';
+  if (bundle.profile?.fullName?.trim()) {
+    if (bundle.pets.length === 0) {
+      return 'pet-setup';
+    }
+    return 'onboarding-complete';
   }
 
-  return 'onboarding-complete';
+  return 'profile-setup';
+}
+
+/** Immediately after registration (before intro slides). */
+export function resolveAfterRegistration(): AppScreen {
+  return 'welcome';
 }
 
 export const PROTECTED_SCREENS: AppScreen[] = [
@@ -52,10 +64,24 @@ export const PROTECTED_SCREENS: AppScreen[] = [
   'notifications',
 ];
 
+export const ONBOARDING_FLOW_SCREENS: AppScreen[] = [
+  'welcome',
+  'profile-setup',
+  'pet-setup',
+  'onboarding-complete',
+];
+
 export function isProtectedScreen(screen: AppScreen): boolean {
   return PROTECTED_SCREENS.includes(screen);
 }
 
 export function requiresAuth(screen: AppScreen): boolean {
-  return isProtectedScreen(screen) || screen === 'profile-setup' || screen === 'pet-setup' || screen === 'onboarding-complete';
+  return (
+    isProtectedScreen(screen) ||
+    ONBOARDING_FLOW_SCREENS.includes(screen)
+  );
+}
+
+export function isAuthEntryScreen(screen: AppScreen): boolean {
+  return screen === 'login' || screen === 'signup';
 }

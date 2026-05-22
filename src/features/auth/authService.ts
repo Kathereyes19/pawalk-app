@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { clearMockUserId } from '@/lib/mockUser';
+import { fetchProfile } from '@/features/profile';
 import type { AuthResult, SignInCredentials, SignUpCredentials } from '@/types';
 
 function mapAuthError(message: string): AuthResult['error'] {
@@ -14,9 +15,6 @@ function mapAuthError(message: string): AuthResult['error'] {
   return { message };
 }
 
-/**
- * Sign in with email/password via Supabase, or mock success when not configured.
- */
 export async function signInWithEmail(
   credentials: SignInCredentials
 ): Promise<AuthResult<{ userId: string | null }>> {
@@ -45,9 +43,6 @@ export async function signInWithEmail(
   };
 }
 
-/**
- * Register with email/password; stores display name in user metadata.
- */
 export async function signUpWithEmail(
   credentials: SignUpCredentials
 ): Promise<AuthResult<{ userId: string | null }>> {
@@ -89,20 +84,26 @@ export async function signOut(): Promise<void> {
   }
 }
 
-export async function signInWithOAuth(provider: 'google' | 'apple'): Promise<AuthResult> {
+export async function signInWithOAuth(
+  provider: 'google' | 'apple'
+): Promise<AuthResult<{ redirecting: boolean }>> {
   if (!isSupabaseConfigured()) {
-    return { data: null, error: null, mode: 'mock' };
+    return { data: { redirecting: false }, error: null, mode: 'mock' };
   }
 
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { data: null, error: null, mode: 'mock' };
+    return { data: { redirecting: false }, error: null, mode: 'mock' };
   }
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: window.location.origin,
+      redirectTo: `${window.location.origin}${window.location.pathname}`,
+      queryParams:
+        provider === 'apple'
+          ? { scope: 'email name' }
+          : { access_type: 'offline', prompt: 'consent' },
     },
   });
 
@@ -110,5 +111,12 @@ export async function signInWithOAuth(provider: 'google' | 'apple'): Promise<Aut
     return { data: null, error: mapAuthError(error.message), mode: 'supabase' };
   }
 
-  return { data: null, error: null, mode: 'supabase' };
+  return { data: { redirecting: true }, error: null, mode: 'supabase' };
+}
+
+/** True when the user has no completed onboarding profile in Supabase. */
+export async function isOAuthNewUser(userId: string): Promise<boolean> {
+  const { profile, onboardingCompleted } = await fetchProfile(userId);
+  if (onboardingCompleted) return false;
+  return !profile?.fullName?.trim();
 }

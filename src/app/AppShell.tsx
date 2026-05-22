@@ -13,8 +13,7 @@ import { useAppNavigation } from './navigation/useAppNavigation';
 function AppShellContent() {
   const navigation = useAppNavigation();
   const { currentScreen, activeTab, isAppReady, isNavigating } = navigation;
-  const showBootstrapLoader =
-    currentScreen === 'splash' && !isAppReady || isNavigating;
+  const showBootstrapLoader = !isAppReady || isNavigating;
 
   return (
     <div className="w-full h-screen max-w-md mx-auto bg-background text-foreground overflow-hidden relative shadow-2xl">

@@ -1,20 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserData } from '@/contexts/UserDataContext';
 import { markOnboardingComplete, upsertProfile } from '@/features/profile';
 import { replacePetsForUser } from '@/features/pets';
-import { loadUserBundle, requiresAuth, resolvePostAuthScreen } from '@/features/user';
+import {
+  AUTH_ENTRY_SCREEN,
+  loadUserBundle,
+  requiresAuth,
+  resolveAuthenticatedScreen,
+} from '@/features/user';
+import { isOAuthNewUser } from '@/features/auth';
+import { clearPendingOnboarding, setPendingOnboarding } from '@/lib/onboardingSession';
+import { resolveUserId } from '@/lib/mockUser';
 import {
   INITIAL_SCREEN,
   POST_AUTH_HOME,
   type AppScreen,
   type BottomNavTab,
 } from '@/navigation';
-import { resolveUserId } from '@/lib/mockUser';
 import type { BookingData, Pet, UserProfile, Walker } from '@/types';
 
 export function useAppNavigation() {
-  const { session, isLoading: authLoading } = useAuth();
+  const { session, isLoading: authLoading, signOut } = useAuth();
   const {
     userId,
     profile: profileData,
@@ -31,55 +38,83 @@ export function useAppNavigation() {
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
   const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
-  const [isNewUser, setIsNewUser] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
+  const hasBootstrapped = useRef(false);
 
-  const isAppReady = !authLoading && (!resolveUserId(session?.user?.id ?? null) || !userDataLoading);
-  const isAuthenticated = Boolean(session || userId);
+  const resolvedUserId = userId ?? resolveUserId(session?.user?.id ?? null);
+  const isAppReady =
+    !authLoading && (!resolvedUserId || !userDataLoading);
+  const isAuthenticated = Boolean(session || resolvedUserId);
 
-  const navigateFromBundle = useCallback(
+  const applyBundleAndNavigate = useCallback(
     async (uid: string) => {
       const bundle = await loadUserBundle(uid);
       setProfile(bundle.profile);
       setPets(bundle.pets);
       setOnboardingCompleted(bundle.onboardingCompleted);
-      return resolvePostAuthScreen(bundle);
+      setCurrentScreen(resolveAuthenticatedScreen(bundle));
+      return bundle;
     },
     [setProfile, setPets, setOnboardingCompleted]
   );
 
-  /** Route guard: block protected screens without auth */
+  /** One-time routing after auth + user data are ready */
   useEffect(() => {
-    if (!isAppReady) return;
-    if (!isAuthenticated && requiresAuth(currentScreen)) {
-      setCurrentScreen('welcome');
-    }
-  }, [isAppReady, isAuthenticated, currentScreen]);
+    if (!isAppReady || hasBootstrapped.current) return;
+    hasBootstrapped.current = true;
 
-  /** Returning users with completed onboarding cannot re-enter onboarding screens */
-  useEffect(() => {
-    if (!isAppReady || !isAuthenticated || !onboardingCompleted) return;
-
-    const onboardingOnly: AppScreen[] = ['profile-setup', 'pet-setup', 'onboarding-complete', 'welcome', 'login', 'signup'];
-    if (onboardingOnly.includes(currentScreen)) {
-      setCurrentScreen(POST_AUTH_HOME);
-    }
-  }, [isAppReady, isAuthenticated, onboardingCompleted, currentScreen]);
-
-  const handleSplashComplete = useCallback(async () => {
-    if (!isAuthenticated || !userId) {
-      setCurrentScreen('welcome');
+    if (!isAuthenticated || !resolvedUserId) {
+      setCurrentScreen(AUTH_ENTRY_SCREEN);
       return;
     }
 
-    setIsNavigating(true);
-    const screen = await navigateFromBundle(userId);
-    setCurrentScreen(screen);
-    setIsNavigating(false);
-  }, [isAuthenticated, userId, navigateFromBundle]);
+    void applyBundleAndNavigate(resolvedUserId);
+  }, [isAppReady, isAuthenticated, resolvedUserId, applyBundleAndNavigate]);
+
+  /** Route guard */
+  useEffect(() => {
+    if (!isAppReady) return;
+    if (!isAuthenticated && requiresAuth(currentScreen)) {
+      setCurrentScreen(AUTH_ENTRY_SCREEN);
+    }
+  }, [isAppReady, isAuthenticated, currentScreen]);
+
+  /** OAuth redirect / session restore: send completed users to home */
+  useEffect(() => {
+    if (!isAppReady || !resolvedUserId || userDataLoading) return;
+    if (onboardingCompleted && ['login', 'signup'].includes(currentScreen)) {
+      setCurrentScreen(POST_AUTH_HOME);
+    }
+  }, [
+    isAppReady,
+    resolvedUserId,
+    userDataLoading,
+    onboardingCompleted,
+    currentScreen,
+  ]);
+
+  /** Completed users must not see auth/onboarding again */
+  useEffect(() => {
+    if (!isAppReady || !isAuthenticated || !onboardingCompleted) return;
+
+    const blocked: AppScreen[] = [
+      'welcome',
+      'login',
+      'signup',
+      'profile-setup',
+      'pet-setup',
+      'onboarding-complete',
+    ];
+    if (blocked.includes(currentScreen)) {
+      setCurrentScreen(POST_AUTH_HOME);
+      setWelcomeMode('none');
+    }
+  }, [isAppReady, isAuthenticated, onboardingCompleted, currentScreen]);
 
   const handleWelcomeComplete = useCallback(() => {
-    setCurrentScreen('signup');
+    setWelcomeMode('none');
+    setCurrentScreen('profile-setup');
   }, []);
 
   const handleWelcomeLogin = useCallback(() => {
@@ -87,64 +122,121 @@ export function useAppNavigation() {
   }, []);
 
   const handleLogin = useCallback(async () => {
-    setIsNewUser(false);
-    const uid = userId ?? resolveUserId(session?.user?.id ?? null);
+    clearPendingOnboarding();
+    const uid = resolvedUserId;
     if (!uid) {
-      setCurrentScreen(POST_AUTH_HOME);
+      setCurrentScreen(AUTH_ENTRY_SCREEN);
       return;
     }
 
     setIsNavigating(true);
     await refreshUserData();
-    const screen = await navigateFromBundle(uid);
-    setCurrentScreen(screen);
+    const bundle = await loadUserBundle(uid);
+    setProfile(bundle.profile);
+    setPets(bundle.pets);
+    setOnboardingCompleted(bundle.onboardingCompleted);
+
+    if (bundle.onboardingCompleted) {
+      setCurrentScreen(POST_AUTH_HOME);
+    } else {
+      setCurrentScreen(resolveAuthenticatedScreen(bundle));
+    }
     setIsNavigating(false);
-  }, [userId, session?.user?.id, refreshUserData, navigateFromBundle]);
+  }, [resolvedUserId, refreshUserData, setProfile, setPets, setOnboardingCompleted]);
 
   const handleSignUp = useCallback(() => {
-    setIsNewUser(true);
+    setPendingOnboarding(true);
+    setWelcomeMode('intro');
     setOnboardingCompleted(false);
-    setCurrentScreen('profile-setup');
+    setCurrentScreen('welcome');
   }, [setOnboardingCompleted]);
+
+  const handleOAuthSuccess = useCallback(
+    async (isNewUser: boolean) => {
+      const uid = resolvedUserId ?? resolveUserId(session?.user?.id ?? null);
+      if (!uid) return;
+
+      setIsNavigating(true);
+      await refreshUserData();
+      const bundle = await loadUserBundle(uid);
+
+      if (isNewUser || !bundle.onboardingCompleted) {
+        if (!bundle.profile?.fullName?.trim()) {
+          setPendingOnboarding(true);
+          setWelcomeMode('intro');
+          setCurrentScreen('welcome');
+        } else {
+          setCurrentScreen(resolveAuthenticatedScreen(bundle));
+        }
+      } else {
+        clearPendingOnboarding();
+        setCurrentScreen(POST_AUTH_HOME);
+      }
+      setIsNavigating(false);
+    },
+    [resolvedUserId, session?.user?.id, refreshUserData]
+  );
+
+  useEffect(() => {
+    if (!isAppReady || !session?.user?.id) return;
+    if (sessionStorage.getItem('pawalk_oauth_return') !== '1') return;
+
+    sessionStorage.removeItem('pawalk_oauth_return');
+    void (async () => {
+      const isNew = await isOAuthNewUser(session.user!.id);
+      await handleOAuthSuccess(isNew);
+    })();
+  }, [isAppReady, session?.user?.id, handleOAuthSuccess]);
 
   const handleProfileSetupComplete = useCallback(
     async (data: UserProfile) => {
       setProfile(data);
-      const uid = userId ?? resolveUserId(session?.user?.id ?? null);
+      const uid = resolvedUserId;
       if (uid) {
         await upsertProfile(uid, data);
       }
       setCurrentScreen('pet-setup');
     },
-    [userId, session?.user?.id, setProfile]
+    [resolvedUserId, setProfile]
   );
 
   const handlePetSetupComplete = useCallback(
     async (pets: Pet[]) => {
-      const uid = userId ?? resolveUserId(session?.user?.id ?? null);
+      const uid = resolvedUserId;
       if (uid) {
         const { pets: saved, error } = await replacePetsForUser(uid, pets);
-        if (!error) {
-          setPets(saved);
-        } else {
-          setPets(pets);
-        }
+        setPets(error ? pets : saved);
       } else {
         setPets(pets);
       }
       setCurrentScreen('onboarding-complete');
     },
-    [userId, session?.user?.id, setPets]
+    [resolvedUserId, setPets]
   );
 
   const handleOnboardingComplete = useCallback(async () => {
-    const uid = userId ?? resolveUserId(session?.user?.id ?? null);
+    const uid = resolvedUserId;
     if (uid) {
-      await markOnboardingComplete(uid);
+      await markOnboardingComplete(uid, profileData ?? undefined);
+      await refreshUserData();
     }
+    clearPendingOnboarding();
+    setWelcomeMode('none');
     setOnboardingCompleted(true);
     setCurrentScreen(POST_AUTH_HOME);
-  }, [userId, session?.user?.id, setOnboardingCompleted]);
+  }, [resolvedUserId, profileData, setOnboardingCompleted, refreshUserData]);
+
+  const handleLogout = useCallback(async () => {
+    await signOut();
+    clearPendingOnboarding();
+    setWelcomeMode('none');
+    setProfile(null);
+    setPets([]);
+    setOnboardingCompleted(false);
+    setActiveTab('home');
+    hasBootstrapped.current = true;
+    setCurrentScreen(AUTH_ENTRY_SCREEN);
+  }, [signOut, setProfile, setPets, setOnboardingCompleted]);
 
   const handleWalkerClick = useCallback((walker: Walker) => {
     setSelectedWalker(walker);
@@ -173,29 +265,34 @@ export function useAppNavigation() {
     setActiveTab('home');
   }, []);
 
-  const handleTabChange = useCallback((tab: BottomNavTab) => {
-    if (!isAuthenticated) {
-      setCurrentScreen('welcome');
-      return;
-    }
-    if (!onboardingCompleted && tab !== 'home') {
-      setCurrentScreen(resolvePostAuthScreen({
-        profile: profileData,
-        pets: userPets,
-        onboardingCompleted,
-      }));
-      return;
-    }
-    setActiveTab(tab);
-    if (tab === 'home') {
-      setCurrentScreen(POST_AUTH_HOME);
-    }
-  }, [isAuthenticated, onboardingCompleted, profileData, userPets]);
+  const handleTabChange = useCallback(
+    (tab: BottomNavTab) => {
+      if (!isAuthenticated) {
+        setCurrentScreen(AUTH_ENTRY_SCREEN);
+        return;
+      }
+      if (!onboardingCompleted) {
+        setCurrentScreen(
+          resolveAuthenticatedScreen({
+            profile: profileData,
+            pets: userPets,
+            onboardingCompleted,
+          })
+        );
+        return;
+      }
+      setActiveTab(tab);
+      if (tab === 'home') {
+        setCurrentScreen(POST_AUTH_HOME);
+      }
+    },
+    [isAuthenticated, onboardingCompleted, profileData, userPets]
+  );
 
   const goToScreen = useCallback(
     (screen: AppScreen) => {
       if (!isAuthenticated && requiresAuth(screen)) {
-        setCurrentScreen('welcome');
+        setCurrentScreen(AUTH_ENTRY_SCREEN);
         return;
       }
       setCurrentScreen(screen);
@@ -210,20 +307,21 @@ export function useAppNavigation() {
     bookingData,
     profileData,
     userPets,
-    isNewUser,
     isAppReady,
     isNavigating,
     isAuthenticated,
     onboardingCompleted,
+    welcomeMode,
     handlers: {
-      handleSplashComplete,
       handleWelcomeComplete,
       handleWelcomeLogin,
       handleLogin,
       handleSignUp,
+      handleOAuthSuccess,
       handleProfileSetupComplete,
       handlePetSetupComplete,
       handleOnboardingComplete,
+      handleLogout,
       handleWalkerClick,
       handleBookWalk,
       handleBookingContinue,

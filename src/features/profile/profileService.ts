@@ -7,6 +7,11 @@ export function mapProfileToRow(
   userId: string,
   profile: UserProfile
 ): Omit<ProfileRow, 'id' | 'created_at' | 'updated_at' | 'onboarding_completed'> {
+  const avatar = profile.avatar;
+  const avatarUrl =
+    profile.avatarUrl ??
+    (avatar.startsWith('http') || avatar.startsWith('data:') ? avatar : null);
+
   return {
     user_id: userId,
     full_name: profile.fullName,
@@ -15,14 +20,17 @@ export function mapProfileToRow(
     neighborhood: profile.neighborhood,
     emergency_contact: profile.emergencyContact,
     emergency_phone: profile.emergencyPhone,
-    avatar_emoji: profile.avatar,
+    avatar_emoji: avatar.length <= 4 ? avatar : '👤',
+    avatar_url: avatarUrl,
     language: profile.language,
   };
 }
 
 export function mapRowToUserProfile(row: ProfileRow): UserProfile {
+  const avatarUrl = row.avatar_url ?? null;
   return {
-    avatar: row.avatar_emoji ?? '👤',
+    avatar: avatarUrl ?? row.avatar_emoji ?? '👤',
+    avatarUrl,
     fullName: row.full_name ?? '',
     phone: row.phone ?? '',
     email: row.email ?? '',
@@ -104,7 +112,10 @@ export async function upsertProfile(
   return { error: error ? new Error(error.message) : null };
 }
 
-export async function markOnboardingComplete(userId: string): Promise<{ error: Error | null }> {
+export async function markOnboardingComplete(
+  userId: string,
+  profile?: UserProfile
+): Promise<{ error: Error | null }> {
   if (!isSupabaseConfigured()) {
     const stored = loadStoredUserBundle(userId) ?? {
       onboardingCompleted: false,
@@ -114,7 +125,7 @@ export async function markOnboardingComplete(userId: string): Promise<{ error: E
     saveStoredUserBundle(userId, {
       ...stored,
       onboardingCompleted: true,
-      profile: stored.profile,
+      profile: profile ?? stored.profile,
       pets: stored.pets,
     });
     return { error: null };
@@ -125,10 +136,16 @@ export async function markOnboardingComplete(userId: string): Promise<{ error: E
     return { error: null };
   }
 
+  const baseRow = profile
+    ? { ...mapProfileToRow(userId, profile), onboarding_completed: true }
+    : { user_id: userId, onboarding_completed: true };
+
   const { error } = await supabase
     .from('profiles')
-    .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
-    .eq('user_id', userId);
+    .upsert(
+      { ...baseRow, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
 
   return { error: error ? new Error(error.message) : null };
 }

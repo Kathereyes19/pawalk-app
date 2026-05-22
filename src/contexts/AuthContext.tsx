@@ -46,9 +46,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setIsLoading(false);
+
+      if (event === 'SIGNED_IN') {
+        if (window.location.hash.includes('access_token')) {
+          sessionStorage.setItem('pawalk_oauth_return', '1');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
     });
 
     return () => {

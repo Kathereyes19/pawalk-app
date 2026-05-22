@@ -2,9 +2,15 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { ensurePetId } from '@/lib/petId';
 import { loadStoredUserBundle, saveStoredUserBundle } from '@/lib/userStorage';
-import type { Pet, PetRow } from '@/types';
+import { mapRowToVaccination } from '@/features/vaccinations';
+import type { Pet, PetRow, VaccinationRow } from '@/types';
 
-function mapRowToPet(row: PetRow): Pet {
+type PetRowWithVaccinations = PetRow & {
+  pet_vaccinations?: VaccinationRow[] | null;
+};
+
+function mapRowToPet(row: PetRowWithVaccinations): Pet {
+  const vaccinations = (row.pet_vaccinations ?? []).map(mapRowToVaccination);
   return {
     id: row.id,
     name: row.name,
@@ -13,7 +19,8 @@ function mapRowToPet(row: PetRow): Pet {
     age: row.age ?? 0,
     weight: Number(row.weight ?? 0),
     behaviors: row.behaviors ?? [],
-    vaccinated: row.vaccinated,
+    vaccinated: row.vaccinated || vaccinations.length > 0,
+    vaccinations,
     gender: (row.gender === 'female' ? 'female' : 'male') as 'male' | 'female',
     species: (row.species === 'cat' ? 'cat' : 'dog') as 'dog' | 'cat',
   };
@@ -32,7 +39,7 @@ function mapPetToRow(userId: string, pet: Pet) {
     vaccinated: pet.vaccinated,
     gender: pet.gender,
     species: pet.species,
-    avatar_url: avatar.startsWith('http') ? avatar : avatar.length <= 4 ? avatar : null,
+    avatar_url: avatar.startsWith('http') || avatar.startsWith('data:') ? avatar : avatar.length <= 4 ? avatar : null,
   };
 }
 
@@ -51,7 +58,7 @@ export async function fetchPetsByUserId(
 
   const { data, error } = await supabase
     .from('pets')
-    .select('*')
+    .select('*, pet_vaccinations(*)')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -60,14 +67,11 @@ export async function fetchPetsByUserId(
   }
 
   return {
-    pets: (data as PetRow[]).map(mapRowToPet),
+    pets: (data as PetRowWithVaccinations[]).map(mapRowToPet),
     error: null,
   };
 }
 
-/**
- * Replaces the user's pets in Supabase (delete + insert) for a consistent snapshot.
- */
 export async function replacePetsForUser(
   userId: string,
   pets: Pet[]
@@ -109,10 +113,9 @@ export async function replacePetsForUser(
     return { pets: normalized, error: new Error(insertError.message) };
   }
 
-  return { pets: normalized, error: null };
+  return fetchPetsByUserId(userId);
 }
 
-/** @deprecated Use replacePetsForUser */
 export async function syncPetsForUser(
   userId: string,
   pets: Pet[]
