@@ -1,7 +1,13 @@
 import React, { type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getNavigationKey, getScreenTransition, resolveLayoutMode, shouldShowAppSidebar } from '@/navigation';
+import {
+  getNavigationKey,
+  getScreenTransition,
+  resolveLayoutMode,
+  shouldShowAppSidebar,
+  shouldUseFullWidthLayout,
+} from '@/navigation';
 import { SidebarNav } from './SidebarNav';
 import { MainContentArea } from './MainContentArea';
 import { RightPanelSlot } from './RightPanelSlot';
@@ -30,6 +36,7 @@ export const AppShellLayout: React.FC<AppShellLayoutProps> = ({
 
   const layoutMode = resolveLayoutMode(currentScreen);
   const showSidebar = shouldShowAppSidebar(currentScreen);
+  const useFullWidth = shouldUseFullWidthLayout(currentScreen);
 
   return (
     <div className="h-screen w-full flex bg-muted/30 md:bg-background-secondary overflow-hidden">
@@ -47,7 +54,7 @@ export const AppShellLayout: React.FC<AppShellLayoutProps> = ({
       )}
 
       <div className="flex-1 flex min-w-0 h-full overflow-hidden">
-        <MainContentArea layoutMode={layoutMode}>
+        <MainContentArea layoutMode={layoutMode} useFullWidth={useFullWidth}>
           {showBootstrapLoader && (
             <div className="absolute inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
               <Loader2 className="w-10 h-10 text-primary animate-spin" aria-label="Cargando" />

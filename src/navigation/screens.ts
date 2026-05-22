@@ -101,7 +101,11 @@ export function resolveLayoutMode(screen: AppScreen): AppLayoutMode {
 }
 
 export function shouldUseFullWidthLayout(screen: AppScreen): boolean {
-  return screen === 'admin' || shouldShowBottomNav(screen);
+  return (
+    screen === 'admin' ||
+    shouldShowBottomNav(screen) ||
+    BOOKING_FLOW_SCREENS.includes(screen)
+  );
 }
 
 /** First paint before auth bootstrap completes */

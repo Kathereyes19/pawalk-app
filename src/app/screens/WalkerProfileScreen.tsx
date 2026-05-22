@@ -23,6 +23,7 @@ import { IconButton } from '../components/IconButton';
 import { WalkerReviewsModal } from '../components/walker/WalkerReviewsModal';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { ProviderProfileSections } from '../components/walker/ProviderProfileSections';
+import { ProviderProfileDesktopLayout } from '../components/walker/profile/ProviderProfileDesktopLayout';
 import { canBookImmediately } from '@/lib/walkers/availability';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
 import {
@@ -87,7 +88,8 @@ export const WalkerProfileScreen: React.FC<WalkerProfileScreenProps> = ({
         : 'from-primary via-secondary to-accent';
 
   return (
-    <div className="h-full overflow-y-auto pb-32 bg-background-secondary">
+    <>
+      <div className="md:hidden h-full overflow-y-auto pb-32 bg-background-secondary">
       <WalkerReviewsModal
         open={showAllReviews}
         onClose={() => setShowAllReviews(false)}
@@ -244,6 +246,14 @@ export const WalkerProfileScreen: React.FC<WalkerProfileScreenProps> = ({
           </Button>
         </div>
       </motion.div>
-    </div>
+      </div>
+
+      <ProviderProfileDesktopLayout
+        walker={walker}
+        onBack={onBack}
+        onBookWalk={onBookWalk}
+        verifiedLabel={t('walker.verified')}
+      />
+    </>
   );
 };
