@@ -21,6 +21,7 @@ import {
   WalkerProfileScreen,
   WelcomeScreen,
 } from '../screens';
+import { AdminScreen } from '../screens/admin/AdminScreen';
 import { shouldShowBottomNav } from '@/navigation';
 import type { useAppNavigation } from './useAppNavigation';
 
@@ -34,6 +35,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
   const {
     currentScreen,
     activeTab,
+    activeAdminTab,
     selectedWalker,
     bookingData,
     profileData,
@@ -156,6 +158,17 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
       case 'reminders':
         return <RemindersScreen onBack={handlers.handleBackFromReminders} />;
 
+      case 'admin':
+        return (
+          <AdminScreen
+            activeTab={activeAdminTab}
+            onTabChange={handlers.handleAdminTabChange}
+            onExitAdmin={handlers.handleExitAdmin}
+            onViewTracking={handlers.handleViewTracking}
+            onViewWalkDetail={handlers.handleViewWalkDetail}
+          />
+        );
+
       default:
         return <HomeScreen onWalkerClick={handlers.handleWalkerClick} />;
     }
@@ -186,6 +199,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
             onLogout={handlers.handleLogout}
             onNavigateToPets={() => handlers.handleTabChange('pets')}
             onOpenReminders={handlers.handleOpenReminders}
+            onOpenAdmin={handlers.handleOpenAdmin}
+            showAdminEntry={navigation.isAdmin}
           />
         );
     }

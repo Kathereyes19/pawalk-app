@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { loadStoredUserBundle, saveStoredUserBundle } from '@/lib/userStorage';
+import { DEFAULT_USER_ROLE, type UserRole } from '@/types/role';
 import type { ProfileRow, UserProfile } from '@/types';
 
 export function mapProfileToRow(
@@ -23,11 +24,13 @@ export function mapProfileToRow(
     avatar_emoji: avatar.length <= 4 ? avatar : '👤',
     avatar_url: avatarUrl,
     language: profile.language,
+    role: profile.role ?? DEFAULT_USER_ROLE,
   };
 }
 
 export function mapRowToUserProfile(row: ProfileRow): UserProfile {
   const avatarUrl = row.avatar_url ?? null;
+  const role = (row.role === 'admin' ? 'admin' : DEFAULT_USER_ROLE) as UserRole;
   return {
     avatar: avatarUrl ?? row.avatar_emoji ?? '👤',
     avatarUrl,
@@ -38,6 +41,7 @@ export function mapRowToUserProfile(row: ProfileRow): UserProfile {
     emergencyContact: row.emergency_contact ?? '',
     emergencyPhone: row.emergency_phone ?? '',
     language: (row.language === 'en' ? 'en' : 'es') as 'es' | 'en',
+    role,
     notifications: {
       push: true,
       email: true,

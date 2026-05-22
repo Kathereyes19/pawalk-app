@@ -21,3 +21,4 @@ export { ProfileScreen } from './ProfileScreen';
 export { ReservationsScreen } from './ReservationsScreen';
 export { RemindersScreen } from './RemindersScreen';
 export { MarketplaceScreen } from './MarketplaceScreen';
+export { AdminScreen } from './admin/AdminScreen';

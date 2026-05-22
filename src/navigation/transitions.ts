@@ -39,6 +39,11 @@ export function getScreenTransition(screen: AppScreen): MotionTransition {
   };
 }
 
-export function getNavigationKey(screen: AppScreen, activeTab: string): string {
+export function getNavigationKey(
+  screen: AppScreen,
+  activeTab: string,
+  activeAdminTab?: string
+): string {
+  if (screen === 'admin') return `admin-${activeAdminTab ?? 'dashboard'}`;
   return screen === 'home' && activeTab !== 'home' ? activeTab : screen;
 }

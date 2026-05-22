@@ -43,6 +43,8 @@ interface ProfileScreenProps {
   onLogout: () => void;
   onNavigateToPets?: () => void;
   onOpenReminders?: () => void;
+  onOpenAdmin?: () => void;
+  showAdminEntry?: boolean;
 }
 
 type ProfileMode = 'view' | 'edit';
@@ -87,6 +89,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLogout,
   onNavigateToPets,
   onOpenReminders,
+  onOpenAdmin,
+  showAdminEntry = false,
 }) => {
   const { user } = useAuth();
   const { profile, pets, userId, isLoading, setProfile, refreshUserData } = useUserData();
@@ -380,6 +384,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {onOpenReminders && <RemindersSection onOpenReminders={onOpenReminders} />}
 
             <ProfileSectionCard title={t('profile.section.account')}>
+              {showAdminEntry && onOpenAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors mb-1"
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium">Panel de administración</p>
+                    <p className="text-xs text-muted-foreground">Dashboard, usuarios y analíticas</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </button>
+              )}
               <ProfileInfoRow
                 icon={<Shield className="w-5 h-5" />}
                 label={t('profile.account.security')}

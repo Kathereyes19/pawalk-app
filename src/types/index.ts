@@ -1,5 +1,7 @@
 export type { SignInCredentials, SignUpCredentials, AuthMode, AuthError, AuthErrorCode, AuthResult } from './auth';
 export type { UserProfile, ProfileRow } from './profile';
+export type { UserRole } from './role';
+export { DEFAULT_USER_ROLE, isAdminRole } from './role';
 export type { Pet, PetRow, Vaccination } from './pet';
 export type {
   Walker,

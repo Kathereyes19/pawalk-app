@@ -19,9 +19,14 @@ export type AppScreen =
   | 'tracking'
   | 'walk-detail'
   | 'notifications'
-  | 'reminders';
+  | 'reminders'
+  | 'admin';
 
 export type BottomNavTab = 'home' | 'bookings' | 'marketplace' | 'pets' | 'profile';
+
+export type AdminTab = 'dashboard' | 'users' | 'reservations' | 'marketplace' | 'analytics';
+
+export type AppLayoutMode = 'auth' | 'consumer' | 'admin';
 
 /** Planned URL paths when migrating to react-router */
 export const ROUTE_PATHS = {
@@ -41,6 +46,7 @@ export const ROUTE_PATHS = {
   walkDetail: '/walks/:bookingId',
   notifications: '/notifications',
   reminders: '/reminders',
+  admin: '/admin',
   bookingsTab: '/bookings',
   marketplaceTab: '/marketplace',
   petsTab: '/pets',
@@ -72,13 +78,30 @@ export const ONBOARDING_SCREENS: AppScreen[] = [
   'onboarding-complete',
 ];
 
+export const ADMIN_SCREENS: AppScreen[] = ['admin'];
+
 export const SCREENS_WITHOUT_BOTTOM_NAV: AppScreen[] = [
   ...AUTH_SCREENS.filter((s) => s !== 'home'),
   ...BOOKING_FLOW_SCREENS,
+  ...ADMIN_SCREENS,
 ];
 
 export function shouldShowBottomNav(screen: AppScreen): boolean {
   return !SCREENS_WITHOUT_BOTTOM_NAV.includes(screen);
+}
+
+export function shouldShowAppSidebar(screen: AppScreen): boolean {
+  return shouldShowBottomNav(screen) || screen === 'admin';
+}
+
+export function resolveLayoutMode(screen: AppScreen): AppLayoutMode {
+  if (screen === 'admin') return 'admin';
+  if (shouldShowBottomNav(screen)) return 'consumer';
+  return 'auth';
+}
+
+export function shouldUseFullWidthLayout(screen: AppScreen): boolean {
+  return screen === 'admin' || shouldShowBottomNav(screen);
 }
 
 /** First paint before auth bootstrap completes */

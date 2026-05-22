@@ -10,3 +10,10 @@ export {
   isAuthEntryScreen,
   type UserBundle,
 } from './userBootstrap';
+export {
+  resolveUserRole,
+  canAccessAdmin,
+  requiresAdmin,
+  isAdminScreen,
+  ADMIN_SCREENS,
+} from './roleAccess';
