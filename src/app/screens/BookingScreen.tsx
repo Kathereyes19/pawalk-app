@@ -5,12 +5,13 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { buildUpcomingBookingDates } from '@/lib/bookingDates';
 import {
   canBookImmediately,
-  filterDatesForWalker,
-  filterTimeSlotsForWalker,
-  getSuggestedBookingSlot,
-  getWalkerAvailabilityValidationMessage,
-  isBeforeWalkerAvailability,
 } from '@/lib/walkers/availability';
+import {
+  filterDatesForProvider,
+  filterTimeSlotsForProvider,
+  getSuggestedProviderBookingSlot,
+  validateBookingAvailability,
+} from '@/lib/providers/bookingAvailability';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -66,7 +67,30 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [validationError, setValidationError] = useState<string>('');
 
   const instantBooking = canBookImmediately(walker);
-  const suggestedSlot = useMemo(() => getSuggestedBookingSlot(walker), [walker]);
+  const isOvernightCare = category === 'caregivers' && selectedCareDuration >= 1440;
+  const availabilityContext = useMemo(
+    () => ({
+      isOvernight: isOvernightCare,
+      duration:
+        category === 'caregivers'
+          ? selectedCareDuration
+          : category === 'veterinary'
+            ? vetServices.find((s) => s.id === selectedVetServiceId)?.durationMinutes ?? 45
+            : selectedDuration,
+    }),
+    [
+      category,
+      isOvernightCare,
+      selectedCareDuration,
+      selectedDuration,
+      selectedVetServiceId,
+      vetServices,
+    ]
+  );
+  const suggestedSlot = useMemo(
+    () => getSuggestedProviderBookingSlot(category, walker, availabilityContext),
+    [category, walker, availabilityContext]
+  );
 
   const baseTimeSlots = useMemo(
     () => [
@@ -84,14 +108,28 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   );
 
   const availableDates = useMemo(
-    () => filterDatesForWalker(buildUpcomingBookingDates(7), walker, baseTimeSlots),
-    [walker, baseTimeSlots]
+    () =>
+      filterDatesForProvider(
+        category,
+        buildUpcomingBookingDates(7),
+        walker,
+        baseTimeSlots,
+        availabilityContext
+      ),
+    [category, walker, baseTimeSlots, availabilityContext]
   );
 
   const effectiveDate = selectedDate || availableDates.find((d) => d.available)?.date || '';
   const timeSlots = useMemo(
-    () => filterTimeSlotsForWalker(effectiveDate, baseTimeSlots, walker),
-    [effectiveDate, baseTimeSlots, walker]
+    () =>
+      filterTimeSlotsForProvider(
+        category,
+        effectiveDate,
+        baseTimeSlots,
+        walker,
+        availabilityContext
+      ),
+    [category, effectiveDate, baseTimeSlots, walker, availabilityContext]
   );
 
   const handleDateSelect = (date: string) => {
@@ -217,8 +255,18 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       setValidationError('Selecciona al menos una mascota');
       return;
     }
-    if (isBeforeWalkerAvailability(selectedDate, selectedTime, walker)) {
-      setValidationError(getWalkerAvailabilityValidationMessage(walker));
+    const availability = validateBookingAvailability(
+      category,
+      selectedDate,
+      selectedTime,
+      walker,
+      {
+        isOvernight: isOvernightCare,
+        duration: effectiveDurationMinutes,
+      }
+    );
+    if (!availability.valid) {
+      setValidationError(availability.message);
       return;
     }
 

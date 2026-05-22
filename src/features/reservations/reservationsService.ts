@@ -6,8 +6,8 @@ import {
   loadStoredReservations,
   saveStoredReservations,
 } from '@/lib/reservationStorage';
-import { isScheduledInFuture } from '@/lib/bookingDates';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import { validateBookingAvailability } from '@/lib/providers/bookingAvailability';
 import {
   calculateCategoryBookingTotals,
   getInstitutionMeta,
@@ -271,17 +271,6 @@ async function persistReservationRecord(
   };
 }
 
-function getAvailabilityErrorMessage(category: HomeServiceCategory): string {
-  switch (category) {
-    case 'caregivers':
-      return 'El horario seleccionado es anterior a la disponibilidad del cuidador.';
-    case 'veterinary':
-      return 'El horario seleccionado es anterior a la disponibilidad del centro.';
-    default:
-      return 'El horario seleccionado es anterior a la disponibilidad del paseador.';
-  }
-}
-
 function applyAutoStatus(reservation: Reservation, now = new Date()): Reservation {
   const effective = resolveEffectiveStatus(reservation, now);
   if (effective === reservation.status) return reservation;
@@ -443,17 +432,17 @@ export async function createReservation(
   const serviceCategory =
     input.bookingData.serviceCategory ?? getWalkerHomeCategory(input.walker);
 
-  if (!isScheduledInFuture(scheduledDate, scheduledTime)) {
+  const availability = validateBookingAvailability(
+    serviceCategory,
+    scheduledDate,
+    scheduledTime,
+    input.walker,
+    input.bookingData
+  );
+  if (!availability.valid) {
     return {
       reservation: null,
-      error: new Error('La fecha y hora seleccionadas deben ser futuras.'),
-    };
-  }
-
-  if (isBeforeWalkerAvailability(scheduledDate, scheduledTime, input.walker)) {
-    return {
-      reservation: null,
-      error: new Error(getAvailabilityErrorMessage(serviceCategory)),
+      error: new Error(availability.message),
     };
   }
 
