@@ -66,6 +66,7 @@ export type {
   MarketplaceCategory,
   MarketplaceView,
   MarketplaceOrderStatus,
+  MarketplaceTrackingStep,
   MarketplaceProduct,
   MarketplaceProductRow,
   CartLineItem,

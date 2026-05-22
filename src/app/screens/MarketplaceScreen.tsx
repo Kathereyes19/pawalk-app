@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
-  CheckCircle2,
   Loader2,
   MapPin,
+  Package,
+  RefreshCw,
   Search,
   ShoppingBag,
   ShoppingCart,
@@ -13,26 +14,38 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/app/contexts/LanguageContext';
 import { useMarketplace } from '@/contexts/MarketplaceContext';
-import { usePaymentMethods } from '@/contexts/PaymentMethodsContext';
 import { useUserData } from '@/contexts/UserDataContext';
-import { maskCardNumber } from '@/lib/paymentCardUtils';
+import {
+  formatOrderDate,
+  formatOrderId,
+  resolveLiveOrderStatus,
+} from '@/features/marketplace';
+import {
+  CheckoutHeader,
+  CheckoutPaymentSelector,
+  CheckoutSecurityBanner,
+  CheckoutFixedFooter,
+  OrderConfirmedLayout,
+  useCheckoutPayment,
+  runCheckoutProcessing,
+  MARKETPLACE_PROCESSING_STAGES,
+} from '../components/checkout';
+import { AddPaymentMethodSheet } from '../components/payments/AddPaymentMethodSheet';
 import { ProductCard } from '../components/marketplace/ProductCard';
 import { CartItemRow } from '../components/marketplace/CartItemRow';
 import { MarketplaceFilterSheet } from '../components/marketplace/MarketplaceFilterSheet';
-import { PaymentMethodCard } from '../components/payments/PaymentMethodCard';
-import { AddPaymentMethodSheet } from '../components/payments/AddPaymentMethodSheet';
+import { OrderCard } from '../components/marketplace/OrderCard';
+import { OrderTrackingStepper } from '../components/marketplace/OrderTrackingStepper';
+import { RecommendedProductsSection } from '../components/marketplace/RecommendedProductsSection';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { IconButton } from '../components/IconButton';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/Card';
-import type { CheckoutPaymentSelection } from '@/types';
 
 export const MarketplaceScreen: React.FC = () => {
-  const { t } = useLanguage();
   const { profile } = useUserData();
-  const marketplace = useMarketplace();
-  const { view } = marketplace;
+  const { view } = useMarketplace();
 
   return (
     <div className="h-full overflow-hidden bg-background-secondary relative">
@@ -50,6 +63,8 @@ export const MarketplaceScreen: React.FC = () => {
           {view === 'cart' && <MarketplaceCartView />}
           {view === 'checkout' && <MarketplaceCheckoutView profileAddress={profile?.neighborhood} />}
           {view === 'confirmed' && <MarketplaceOrderConfirmedView />}
+          {view === 'orders' && <MarketplaceOrdersView />}
+          {view === 'tracking' && <MarketplaceOrderTrackingView />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -62,7 +77,8 @@ const MarketplaceHeader: React.FC<{
   onBack?: () => void;
   cartCount?: number;
   onCart?: () => void;
-}> = ({ title, subtitle, onBack, cartCount = 0, onCart }) => (
+  onOrders?: () => void;
+}> = ({ title, subtitle, onBack, cartCount = 0, onCart, onOrders }) => (
   <div className="sticky top-0 z-10 bg-gradient-to-br from-primary to-accent px-4 pt-4 pb-5 shadow-lg">
     <div className="flex items-center justify-between mb-3">
       {onBack ? (
@@ -77,21 +93,33 @@ const MarketplaceHeader: React.FC<{
       ) : (
         <div className="w-11" />
       )}
-      {onCart && (
-        <button
-          type="button"
-          onClick={onCart}
-          className="relative p-2.5 rounded-full bg-white/20 text-white min-w-11 min-h-11 flex items-center justify-center"
-          aria-label="Carrito"
-        >
-          <ShoppingCart className="w-5 h-5" />
-          {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
-              {cartCount > 9 ? '9+' : cartCount}
-            </span>
-          )}
-        </button>
-      )}
+      <div className="flex items-center gap-2">
+        {onOrders && (
+          <button
+            type="button"
+            onClick={onOrders}
+            className="p-2.5 rounded-full bg-white/20 text-white min-w-11 min-h-11 flex items-center justify-center"
+            aria-label="Mis pedidos"
+          >
+            <Package className="w-5 h-5" />
+          </button>
+        )}
+        {onCart && (
+          <button
+            type="button"
+            onClick={onCart}
+            className="relative p-2.5 rounded-full bg-white/20 text-white min-w-11 min-h-11 flex items-center justify-center"
+            aria-label="Carrito"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+                {cartCount > 9 ? '9+' : cartCount}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
     </div>
     <h1 className="text-2xl font-bold text-white">{title}</h1>
     {subtitle && <p className="text-white/90 text-sm mt-1">{subtitle}</p>}
@@ -102,6 +130,7 @@ function MarketplaceHomeView() {
   const { t } = useLanguage();
   const {
     filteredProducts,
+    recommendedProducts,
     filters,
     setFilters,
     resetFilters,
@@ -110,6 +139,7 @@ function MarketplaceHomeView() {
     cartCount,
     openProduct,
     openCart,
+    openOrders,
   } = useMarketplace();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -120,6 +150,7 @@ function MarketplaceHomeView() {
         subtitle={t('marketplace.subtitle')}
         cartCount={cartCount}
         onCart={openCart}
+        onOrders={openOrders}
       />
 
       <div className="p-4 space-y-4 -mt-2">
@@ -142,6 +173,10 @@ function MarketplaceHomeView() {
             <SlidersHorizontal className="w-5 h-5" />
           </button>
         </div>
+
+        {!isLoading && recommendedProducts.length > 0 && (
+          <RecommendedProductsSection products={recommendedProducts} onProductClick={openProduct} />
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-16">
@@ -259,19 +294,11 @@ function MarketplaceProductView() {
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">{t('marketplace.quantity')}</span>
           <div className="flex items-center gap-2 bg-muted/60 rounded-xl p-1">
-            <IconButton
-              size="sm"
-              variant="ghost"
-              onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-            >
+            <IconButton size="sm" variant="ghost" onClick={() => setQuantity((v) => Math.max(1, v - 1))}>
               -
             </IconButton>
             <span className="w-8 text-center font-semibold">{quantity}</span>
-            <IconButton
-              size="sm"
-              variant="ghost"
-              onClick={() => setQuantity((value) => value + 1)}
-            >
+            <IconButton size="sm" variant="ghost" onClick={() => setQuantity((v) => v + 1)}>
               +
             </IconButton>
           </div>
@@ -345,65 +372,52 @@ function MarketplaceCartView() {
 
 function MarketplaceCheckoutView({ profileAddress }: { profileAddress?: string | null }) {
   const { t } = useLanguage();
-  const {
-    cartProducts,
-    cartSubtotal,
-    goBack,
-    placeOrder,
-    defaultPaymentMethod,
-    paymentMethods,
-    addPaymentMethod,
-  } = useMarketplaceCheckoutData();
+  const { cartProducts, cartSubtotal, goBack, placeOrder } = useMarketplace();
+  const checkoutPayment = useCheckoutPayment({ allowedTypes: ['card', 'pse', 'nequi'] });
   const [address, setAddress] = useState(profileAddress ?? '');
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [paymentType, setPaymentType] = useState<'card' | 'pse'>('card');
-  const [addCardOpen, setAddCardOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (defaultPaymentMethod) setSelectedCardId(defaultPaymentMethod.id);
-  }, [defaultPaymentMethod?.id]);
-
-  const selectedCard = useMemo(
-    () => paymentMethods.find((method) => method.id === selectedCardId) ?? defaultPaymentMethod,
-    [paymentMethods, selectedCardId, defaultPaymentMethod]
-  );
-
-  const buildPayment = (): CheckoutPaymentSelection | null => {
-    if (paymentType === 'pse') return { type: 'pse', paymentLabel: 'PSE' };
-    const card = selectedCard ?? defaultPaymentMethod;
-    if (!card) return null;
-    return {
-      type: 'card',
-      paymentMethodId: card.id,
-      paymentLabel: maskCardNumber(card.last4, card.brand),
-    };
-  };
-
   const handleConfirm = async () => {
+    if (isProcessing) return;
     setError(null);
-    const payment = buildPayment();
-    if (!payment) {
-      setError('Selecciona un método de pago o agrega una tarjeta.');
+
+    if (!address.trim()) {
+      setError(t('marketplace.checkout.addressRequired'));
+      return;
+    }
+
+    const selection = checkoutPayment.buildPaymentSelection();
+    if (!selection) {
+      setError(t('marketplace.checkout.paymentRequired'));
       return;
     }
 
     setIsProcessing(true);
-    const result = await placeOrder({
-      deliveryAddress: address,
-      paymentMethodLabel: payment.paymentLabel,
-      paymentMethodId: payment.paymentMethodId,
-    });
+    const result = await runCheckoutProcessing(
+      async () =>
+        placeOrder({
+          deliveryAddress: address,
+          paymentMethodLabel: selection.paymentLabel,
+          paymentMethodId: selection.paymentMethodId,
+        }),
+      setProcessingStage,
+      MARKETPLACE_PROCESSING_STAGES
+    );
     setIsProcessing(false);
     if (result.error) setError(result.error);
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-28">
-      <MarketplaceHeader title={t('marketplace.checkout.title')} onBack={goBack} />
+    <div className="h-full overflow-y-auto pb-36 bg-background-secondary">
+      <CheckoutHeader
+        title={t('marketplace.checkout.title')}
+        subtitle={t('marketplace.checkout.subtitle')}
+        onBack={goBack}
+      />
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-6">
         <Card>
           <h3 className="font-semibold mb-3">{t('marketplace.checkout.summary')}</h3>
           <div className="space-y-2">
@@ -435,110 +449,186 @@ function MarketplaceCheckoutView({ profileAddress }: { profileAddress?: string |
           />
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">{t('marketplace.checkout.payment')}</h3>
-            <button
-              type="button"
-              className="text-sm text-primary font-medium"
-              onClick={() => setAddCardOpen(true)}
-            >
-              + Tarjeta
-            </button>
-          </div>
-          <div className="space-y-2">
-            {paymentMethods.map((method) => (
-              <PaymentMethodCard
-                key={method.id}
-                method={method}
-                selectable
-                selected={paymentType === 'card' && selectedCardId === method.id}
-                onSelect={() => {
-                  setPaymentType('card');
-                  setSelectedCardId(method.id);
-                }}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={() => setPaymentType('pse')}
-              className={`w-full text-left p-3 rounded-2xl border ${
-                paymentType === 'pse' ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
-              PSE — Débito bancario
-            </button>
-          </div>
-        </Card>
+        <CheckoutPaymentSelector
+          title={t('marketplace.checkout.payment')}
+          paymentMethods={checkoutPayment.paymentMethods}
+          paymentMethodsLoading={checkoutPayment.paymentMethodsLoading}
+          paymentType={checkoutPayment.paymentType}
+          selectedCardId={checkoutPayment.selectedCardId}
+          showAllCards={checkoutPayment.showAllCards}
+          allowedTypes={checkoutPayment.allowedTypes}
+          onPaymentTypeChange={checkoutPayment.setPaymentType}
+          onSelectCard={checkoutPayment.setSelectedCardId}
+          onToggleShowAllCards={() => checkoutPayment.setShowAllCards((value) => !value)}
+          onAddCard={() => checkoutPayment.setAddCardOpen(true)}
+        />
 
-        {error && (
-          <Card className="border-destructive/30 bg-destructive/5">
-            <p className="text-sm text-destructive font-medium">{error}</p>
-          </Card>
-        )}
-      </div>
-
-      <div className="fixed bottom-20 left-0 right-0 p-4 z-20">
-        <Button fullWidth size="xl" loading={isProcessing} onClick={handleConfirm}>
-          {t('marketplace.checkout.confirm')} · ${cartSubtotal.toLocaleString()}
-        </Button>
+        <CheckoutSecurityBanner />
       </div>
 
       <AddPaymentMethodSheet
-        open={addCardOpen}
+        open={checkoutPayment.addCardOpen}
         mode="add"
-        onClose={() => setAddCardOpen(false)}
-        onSubmit={async (payload) => {
-          const result = await addPaymentMethod(payload);
-          if (!result.error) setAddCardOpen(false);
-          return result;
-        }}
+        onClose={() => checkoutPayment.setAddCardOpen(false)}
+        onSubmit={checkoutPayment.handleAddCard}
+      />
+
+      <CheckoutFixedFooter
+        total={cartSubtotal}
+        confirmLabel={t('marketplace.checkout.confirm')}
+        isProcessing={isProcessing}
+        processingStage={processingStage}
+        processingStages={MARKETPLACE_PROCESSING_STAGES}
+        error={error}
+        onConfirm={handleConfirm}
+        bottomOffset="tab"
       />
     </div>
   );
 }
 
-function useMarketplaceCheckoutData() {
-  const marketplace = useMarketplace();
-  const { defaultPaymentMethod, paymentMethods, addPaymentMethod } = usePaymentMethods();
-  return { ...marketplace, defaultPaymentMethod, paymentMethods, addPaymentMethod };
+function MarketplaceOrdersView() {
+  const { t } = useLanguage();
+  const { orders, ordersLoading, goBack, openOrderTracking, refreshOrders } = useMarketplace();
+
+  return (
+    <div className="h-full overflow-y-auto pb-24">
+      <MarketplaceHeader title={t('marketplace.orders.title')} subtitle={t('marketplace.orders.subtitle')} onBack={goBack} />
+
+      <div className="p-4 space-y-3">
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => void refreshOrders()}>
+            <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+            {t('marketplace.orders.refresh')}
+          </Button>
+        </div>
+
+        {ordersLoading && orders.length === 0 ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          </div>
+        ) : orders.length === 0 ? (
+          <Card className="text-center py-12 border-dashed">
+            <Package className="w-10 h-10 text-primary mx-auto mb-3" />
+            <p className="font-semibold">{t('marketplace.orders.empty.title')}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t('marketplace.orders.empty.desc')}</p>
+          </Card>
+        ) : (
+          orders.map((order) => (
+            <OrderCard key={order.id} order={order} onClick={() => openOrderTracking(order.id)} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MarketplaceOrderTrackingView() {
+  const { t, language } = useLanguage();
+  const { selectedOrder, goBack } = useMarketplace();
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setTick((value) => value + 1), 15000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const tracking = useMemo(() => {
+    void tick;
+    return selectedOrder ? resolveLiveOrderStatus(selectedOrder) : null;
+  }, [selectedOrder, tick]);
+
+  if (!selectedOrder || !tracking) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Button onClick={goBack}>{t('back')}</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto pb-24">
+      <MarketplaceHeader
+        title={t('marketplace.tracking.title')}
+        subtitle={`${t('marketplace.orders.orderId')} #${formatOrderId(selectedOrder.id)}`}
+        onBack={goBack}
+      />
+
+      <div className="p-4 space-y-4">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+          <OrderTrackingStepper steps={tracking.steps} />
+        </Card>
+
+        <Card>
+          <h3 className="font-semibold mb-3">{t('marketplace.tracking.details')}</h3>
+          <div className="space-y-2">
+            {selectedOrder.items.map((item) => (
+              <div key={item.productId} className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {item.quantity}× {item.name}
+                </span>
+                <span className="font-medium">${(item.price * item.quantity).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+          <div className="pt-3 mt-3 border-t border-border space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t('marketplace.checkout.address')}</span>
+              <span className="font-medium text-right max-w-[60%]">{selectedOrder.deliveryAddress}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t('marketplace.checkout.payment')}</span>
+              <span className="font-medium">{selectedOrder.paymentMethodLabel}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t('marketplace.orders.purchaseDate')}</span>
+              <span className="font-medium">
+                {formatOrderDate(selectedOrder.createdAt, language === 'en' ? 'en-US' : 'es-CO')}
+              </span>
+            </div>
+            <div className="flex justify-between font-bold text-primary">
+              <span>{t('marketplace.subtotal')}</span>
+              <span>${selectedOrder.subtotal.toLocaleString()}</span>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
 function MarketplaceOrderConfirmedView() {
-  const { t } = useLanguage();
-  const { lastOrder, goHome } = useMarketplace();
+  const { t, language } = useLanguage();
+  const { lastOrder, goHome, openOrders } = useMarketplace();
 
   return (
-    <div className="h-full overflow-y-auto pb-24 flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', bounce: 0.4 }}
-          className="w-24 h-24 rounded-full bg-success/15 flex items-center justify-center mb-5"
-        >
-          <CheckCircle2 className="w-14 h-14 text-success" />
-        </motion.div>
-        <h2 className="text-2xl font-bold mb-2">{t('marketplace.confirmed.title')}</h2>
-        <p className="text-muted-foreground max-w-xs">{t('marketplace.confirmed.desc')}</p>
-
-        {lastOrder && (
-          <Card className="mt-6 w-full max-w-sm text-left">
-            <p className="text-xs text-muted-foreground">Pedido #{lastOrder.id.slice(0, 8)}</p>
-            <p className="font-bold text-primary text-lg mt-1">
-              ${lastOrder.subtotal.toLocaleString()}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">{lastOrder.deliveryAddress}</p>
-            <p className="text-sm mt-1">{lastOrder.paymentMethodLabel}</p>
-          </Card>
-        )}
-      </div>
-
-      <div className="p-4 pb-safe">
-        <Button fullWidth size="xl" onClick={goHome}>
-          {t('marketplace.confirmed.cta')}
-        </Button>
-      </div>
-    </div>
+    <OrderConfirmedLayout
+      title={t('marketplace.confirmed.title')}
+      subtitle={t('marketplace.confirmed.desc')}
+      primaryAction={{
+        label: t('marketplace.orders.viewOrders'),
+        onClick: openOrders,
+        icon: <Package className="w-5 h-5" />,
+      }}
+      secondaryAction={{
+        label: t('marketplace.confirmed.cta'),
+        onClick: goHome,
+        variant: 'outline',
+      }}
+    >
+      {lastOrder && (
+        <Card variant="elevated" className="shadow-2xl border-2 border-primary/10 bg-gradient-to-br from-card to-primary/5">
+          <p className="text-xs text-muted-foreground">
+            {t('marketplace.orders.orderId')} #{formatOrderId(lastOrder.id)}
+          </p>
+          <p className="font-bold text-primary text-2xl mt-1">${lastOrder.subtotal.toLocaleString()}</p>
+          <p className="text-sm text-muted-foreground mt-3">{lastOrder.deliveryAddress}</p>
+          <p className="text-sm mt-1">{lastOrder.paymentMethodLabel}</p>
+          <p className="text-xs text-muted-foreground mt-3">
+            {formatOrderDate(lastOrder.createdAt, language === 'en' ? 'en-US' : 'es-CO')}
+          </p>
+        </Card>
+      )}
+    </OrderConfirmedLayout>
   );
 }

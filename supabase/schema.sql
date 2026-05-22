@@ -236,8 +236,9 @@ create table if not exists public.marketplace_orders (
   payment_method_label text not null,
   payment_method_id uuid references public.payment_methods (id) on delete set null,
   status text not null default 'confirmed' check (
-    status in ('pending', 'confirmed', 'delivered', 'cancelled')
+    status in ('confirmed', 'preparing', 'shipped', 'delivered', 'cancelled')
   ),
+  tracking_steps jsonb not null default '[]',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -251,3 +252,6 @@ create policy "Users can manage own marketplace orders"
   on public.marketplace_orders for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Marketplace order tracking columns (safe for existing databases)
+alter table public.marketplace_orders add column if not exists tracking_steps jsonb not null default '[]';

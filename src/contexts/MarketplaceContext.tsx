@@ -11,11 +11,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { resolveUserId } from '@/lib/mockUser';
 import {
   createMarketplaceOrder,
+  fetchMarketplaceOrdersByUserId,
   fetchMarketplaceProducts,
   filterMarketplaceProducts,
   getMarketplacePriceBounds,
+  getRecommendedProducts,
 } from '@/features/marketplace';
-import { loadStoredCart, saveStoredCart } from '@/lib/marketplaceStorage';
+import {
+  loadStoredCart,
+  loadViewedProductIds,
+  recordViewedProduct,
+  saveStoredCart,
+} from '@/lib/marketplaceStorage';
 import type {
   CartLineItem,
   CartProduct,
@@ -30,6 +37,7 @@ import { DEFAULT_MARKETPLACE_FILTERS as DEFAULT_FILTERS } from '@/types/marketpl
 export interface MarketplaceContextValue {
   products: MarketplaceProduct[];
   filteredProducts: MarketplaceProduct[];
+  recommendedProducts: MarketplaceProduct[];
   filters: MarketplaceFilters;
   priceBounds: { min: number; max: number };
   isLoading: boolean;
@@ -40,14 +48,21 @@ export interface MarketplaceContextValue {
   cartProducts: CartProduct[];
   cartCount: number;
   cartSubtotal: number;
+  orders: MarketplaceOrder[];
+  ordersLoading: boolean;
+  selectedOrder: MarketplaceOrder | null;
   lastOrder: MarketplaceOrder | null;
+  viewedProductIds: string[];
   setFilters: React.Dispatch<React.SetStateAction<MarketplaceFilters>>;
   resetFilters: () => void;
   refreshProducts: () => Promise<void>;
+  refreshOrders: () => Promise<void>;
   openProduct: (productId: string) => void;
   goHome: () => void;
   openCart: () => void;
   openCheckout: () => void;
+  openOrders: () => void;
+  openOrderTracking: (orderId: string) => void;
   goBack: () => void;
   addToCart: (productId: string, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -68,7 +83,11 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<MarketplaceView>('home');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartLineItem[]>([]);
+  const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [viewedProductIds, setViewedProductIds] = useState<string[]>([]);
   const [lastOrder, setLastOrder] = useState<MarketplaceOrder | null>(null);
 
   const refreshProducts = useCallback(async () => {
@@ -85,6 +104,17 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     setIsLoading(false);
   }, []);
 
+  const refreshOrders = useCallback(async () => {
+    if (!userId) {
+      setOrders([]);
+      return;
+    }
+    setOrdersLoading(true);
+    const { orders: fetched } = await fetchMarketplaceOrdersByUserId(userId);
+    setOrders(fetched);
+    setOrdersLoading(false);
+  }, [userId]);
+
   useEffect(() => {
     void refreshProducts();
   }, [refreshProducts]);
@@ -93,10 +123,14 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (authLoading) return;
     if (!userId) {
       setCartItems([]);
+      setOrders([]);
+      setViewedProductIds([]);
       return;
     }
     setCartItems(loadStoredCart(userId));
-  }, [authLoading, userId, session?.user?.id]);
+    setViewedProductIds(loadViewedProductIds(userId));
+    void refreshOrders();
+  }, [authLoading, userId, session?.user?.id, refreshOrders]);
 
   const persistCart = useCallback(
     (items: CartLineItem[]) => {
@@ -116,11 +150,28 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     [products, filters]
   );
 
+  const recommendedProducts = useMemo(
+    () =>
+      getRecommendedProducts(products, {
+        cartItems,
+        orders,
+        viewedProductIds,
+        productsById: productMap,
+        limit: 6,
+      }),
+    [products, cartItems, orders, viewedProductIds, productMap]
+  );
+
   const priceBounds = useMemo(() => getMarketplacePriceBounds(products), [products]);
 
   const selectedProduct = useMemo(
     () => (selectedProductId ? productMap.get(selectedProductId) ?? null : null),
     [selectedProductId, productMap]
+  );
+
+  const selectedOrder = useMemo(
+    () => (selectedOrderId ? orders.find((order) => order.id === selectedOrderId) ?? null : null),
+    [orders, selectedOrderId]
   );
 
   const cartProducts = useMemo<CartProduct[]>(() => {
@@ -154,23 +205,43 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     });
   }, [priceBounds.max]);
 
-  const openProduct = useCallback((productId: string) => {
-    setSelectedProductId(productId);
-    setView('product');
-  }, []);
+  const openProduct = useCallback(
+    (productId: string) => {
+      setSelectedProductId(productId);
+      setView('product');
+      if (userId) {
+        setViewedProductIds(recordViewedProduct(userId, productId));
+      }
+    },
+    [userId]
+  );
 
   const goHome = useCallback(() => {
     setView('home');
     setSelectedProductId(null);
+    setSelectedOrderId(null);
   }, []);
 
   const openCart = useCallback(() => setView('cart'), []);
   const openCheckout = useCallback(() => setView('checkout'), []);
+  const openOrders = useCallback(() => {
+    setSelectedOrderId(null);
+    setView('orders');
+    void refreshOrders();
+  }, [refreshOrders]);
+
+  const openOrderTracking = useCallback((orderId: string) => {
+    setSelectedOrderId(orderId);
+    setView('tracking');
+  }, []);
 
   const goBack = useCallback(() => {
     if (view === 'product') setView('home');
     else if (view === 'checkout') setView('cart');
     else if (view === 'cart') setView('home');
+    else if (view === 'tracking') setView('orders');
+    else if (view === 'orders') setView('home');
+    else if (view === 'confirmed') goHome();
     else goHome();
   }, [view, goHome]);
 
@@ -239,6 +310,7 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
 
       setLastOrder(order);
+      setOrders((current) => [order, ...current.filter((entry) => entry.id !== order.id)]);
       clearCart();
       setView('confirmed');
       return { error: null };
@@ -250,6 +322,7 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     () => ({
       products,
       filteredProducts,
+      recommendedProducts,
       filters,
       priceBounds,
       isLoading,
@@ -260,14 +333,21 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
       cartProducts,
       cartCount,
       cartSubtotal,
+      orders,
+      ordersLoading,
+      selectedOrder,
       lastOrder,
+      viewedProductIds,
       setFilters,
       resetFilters,
       refreshProducts,
+      refreshOrders,
       openProduct,
       goHome,
       openCart,
       openCheckout,
+      openOrders,
+      openOrderTracking,
       goBack,
       addToCart,
       removeFromCart,
@@ -278,6 +358,7 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     [
       products,
       filteredProducts,
+      recommendedProducts,
       filters,
       priceBounds,
       isLoading,
@@ -288,13 +369,20 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
       cartProducts,
       cartCount,
       cartSubtotal,
+      orders,
+      ordersLoading,
+      selectedOrder,
       lastOrder,
+      viewedProductIds,
       resetFilters,
       refreshProducts,
+      refreshOrders,
       openProduct,
       goHome,
       openCart,
       openCheckout,
+      openOrders,
+      openOrderTracking,
       goBack,
       addToCart,
       removeFromCart,

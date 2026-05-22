@@ -10,9 +10,21 @@ export type MarketplaceView =
   | 'product'
   | 'cart'
   | 'checkout'
-  | 'confirmed';
+  | 'confirmed'
+  | 'orders'
+  | 'tracking';
 
-export type MarketplaceOrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+export type MarketplaceOrderStatus =
+  | 'confirmed'
+  | 'preparing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
+
+export interface MarketplaceTrackingStep {
+  status: MarketplaceOrderStatus;
+  completedAt: string | null;
+}
 
 export interface MarketplaceProduct {
   id: string;
@@ -76,7 +88,9 @@ export interface MarketplaceOrder {
   paymentMethodLabel: string;
   paymentMethodId?: string | null;
   status: MarketplaceOrderStatus;
+  trackingSteps: MarketplaceTrackingStep[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface MarketplaceOrderRow {
@@ -88,6 +102,7 @@ export interface MarketplaceOrderRow {
   payment_method_label: string;
   payment_method_id: string | null;
   status: MarketplaceOrderStatus;
+  tracking_steps: MarketplaceTrackingStep[];
   created_at: string;
   updated_at?: string;
 }

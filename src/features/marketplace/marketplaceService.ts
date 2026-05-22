@@ -1,10 +1,8 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { MARKETPLACE_CATALOG } from './catalog';
-import {
-  loadStoredOrders,
-  saveStoredOrders,
-} from '@/lib/marketplaceStorage';
+import { createInitialTrackingSteps } from './orderTracking';
+import { loadStoredOrders, saveStoredOrders } from '@/lib/marketplaceStorage';
 import type {
   CreateMarketplaceOrderInput,
   MarketplaceOrder,
@@ -39,8 +37,19 @@ function mapRowToProduct(row: MarketplaceProductRow): MarketplaceProduct {
   };
 }
 
-function mapRowToOrder(row: MarketplaceOrderRow): MarketplaceOrder {
+function normalizeOrder(order: MarketplaceOrder): MarketplaceOrder {
+  const createdAt = order.createdAt;
   return {
+    ...order,
+    trackingSteps: order.trackingSteps?.length
+      ? order.trackingSteps
+      : createInitialTrackingSteps(createdAt),
+    updatedAt: order.updatedAt ?? createdAt,
+  };
+}
+
+function mapRowToOrder(row: MarketplaceOrderRow): MarketplaceOrder {
+  return normalizeOrder({
     id: row.id,
     userId: row.user_id,
     items: row.items,
@@ -49,8 +58,10 @@ function mapRowToOrder(row: MarketplaceOrderRow): MarketplaceOrder {
     paymentMethodLabel: row.payment_method_label,
     paymentMethodId: row.payment_method_id,
     status: row.status,
+    trackingSteps: row.tracking_steps ?? [],
     createdAt: row.created_at,
-  };
+    updatedAt: row.updated_at ?? row.created_at,
+  });
 }
 
 export async function fetchMarketplaceProducts(): Promise<{
@@ -81,7 +92,7 @@ export async function fetchMarketplaceProducts(): Promise<{
 export async function fetchMarketplaceOrdersByUserId(
   userId: string
 ): Promise<{ orders: MarketplaceOrder[]; error: Error | null }> {
-  const local = loadStoredOrders(userId);
+  const local = loadStoredOrders(userId).map(normalizeOrder);
 
   if (!isSupabaseConfigured()) {
     return { orders: local, error: null };
@@ -108,6 +119,17 @@ export async function fetchMarketplaceOrdersByUserId(
   return { orders: merged, error: null };
 }
 
+export async function fetchMarketplaceOrderById(
+  userId: string,
+  orderId: string
+): Promise<{ order: MarketplaceOrder | null; error: Error | null }> {
+  const { orders, error } = await fetchMarketplaceOrdersByUserId(userId);
+  if (error) {
+    return { order: null, error };
+  }
+  return { order: orders.find((order) => order.id === orderId) ?? null, error: null };
+}
+
 export async function createMarketplaceOrder(
   userId: string,
   items: MarketplaceOrder['items'],
@@ -122,7 +144,7 @@ export async function createMarketplaceOrder(
   }
 
   const now = new Date().toISOString();
-  const order: MarketplaceOrder = {
+  const order: MarketplaceOrder = normalizeOrder({
     id: ensureId('ord'),
     userId,
     items,
@@ -131,8 +153,10 @@ export async function createMarketplaceOrder(
     paymentMethodLabel: input.paymentMethodLabel,
     paymentMethodId: input.paymentMethodId ?? null,
     status: 'confirmed',
+    trackingSteps: createInitialTrackingSteps(now),
     createdAt: now,
-  };
+    updatedAt: now,
+  });
 
   const existing = loadStoredOrders(userId);
   saveStoredOrders(userId, [order, ...existing]);
@@ -157,8 +181,9 @@ export async function createMarketplaceOrder(
       payment_method_label: order.paymentMethodLabel,
       payment_method_id: order.paymentMethodId,
       status: order.status,
+      tracking_steps: order.trackingSteps,
       created_at: order.createdAt,
-      updated_at: order.createdAt,
+      updated_at: order.updatedAt,
     })
     .select('*')
     .single();
@@ -168,9 +193,6 @@ export async function createMarketplaceOrder(
   }
 
   const persisted = mapRowToOrder(data as MarketplaceOrderRow);
-  saveStoredOrders(
-    userId,
-    [persisted, ...existing.filter((item) => item.id !== order.id)]
-  );
+  saveStoredOrders(userId, [persisted, ...existing.filter((item) => item.id !== order.id)]);
   return { order: persisted, error: null };
 }
