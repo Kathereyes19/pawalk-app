@@ -152,6 +152,10 @@ export function isWalkerVisibleOnMap(walker: Walker): boolean {
   return true;
 }
 
+export function todayDateKey(): string {
+  return toDateKey(new Date());
+}
+
 /** Tomorrow's date key in local time */
 export function tomorrowDateKey(): string {
   const d = new Date();

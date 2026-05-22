@@ -8,6 +8,7 @@ interface HomeMapCanvasProps {
   selectedWalkerId?: string | null;
   onSelectWalker: (walker: Walker) => void;
   availableCount: number;
+  totalCount?: number;
 }
 
 function WalkerPin({
@@ -70,6 +71,7 @@ export const HomeMapCanvas: React.FC<HomeMapCanvasProps> = ({
   selectedWalkerId,
   onSelectWalker,
   availableCount,
+  totalCount,
 }) => (
   <div className="absolute inset-0 overflow-hidden">
     <MapBaseLayer gridPatternId="home-map-grid" showUserPin>
@@ -86,7 +88,10 @@ export const HomeMapCanvas: React.FC<HomeMapCanvasProps> = ({
     <div className="absolute bottom-3 left-3 z-30 bg-card/95 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md border border-border">
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-success home-map-live-dot" />
-        <span className="text-xs font-semibold">{availableCount} disponibles · Cali</span>
+        <span className="text-xs font-semibold">
+          {availableCount} disponibles
+          {typeof totalCount === 'number' ? ` · ${totalCount} en mapa` : ''} · Cali
+        </span>
       </div>
     </div>
   </div>

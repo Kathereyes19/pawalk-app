@@ -447,6 +447,8 @@ export function reservationToWalker(reservation: Reservation): Walker {
     responseTime: 5,
     position: { lat: 3.4516, lng: -76.532 },
     serviceType: 'dog-walking',
+    acceptedSpecies: ['dog'],
+    acceptedSizes: ['small', 'medium', 'large'],
     nextAvailableDate: null,
     nextAvailableTime: null,
   };
