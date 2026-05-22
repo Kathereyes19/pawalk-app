@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   SlidersHorizontal,
   Star,
@@ -8,6 +8,9 @@ import {
   Clock,
   Zap,
   X,
+  Moon,
+  Home,
+  Stethoscope,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -18,18 +21,29 @@ import { Button } from '../components/Button';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 import { HomeMapCanvas } from '../components/map/HomeMapCanvas';
+import { HomeCategoryTabs } from '../components/home/HomeCategoryTabs';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
-import { WalkerFilterSheet } from '../components/walker/WalkerFilterSheet';
+import { CategoryFilterSheet } from '../components/walker/CategoryFilterSheet';
 import { MOCK_WALKERS, nudgeWalkerPosition } from '@/lib/walkers/mockWalkers';
-import { useWalkerFilters } from '@/lib/walkers/useWalkerFilters';
-import { filterWalkers } from '@/lib/walkers/filterWalkers';
-import { QUICK_FILTER_OPTIONS } from '@/types/walkerFilters';
-import type { QuickFilterId, Walker } from '@/types';
+import { useHomeDiscovery } from '@/lib/walkers/useHomeDiscovery';
+import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
+import {
+  HOME_CATEGORIES,
+  QUICK_FILTERS_BY_CATEGORY,
+  type CategoryQuickFilterId,
+} from '@/types/homeDiscovery';
+import type { HomeServiceCategory, Walker } from '@/types';
 
-const QUICK_FILTER_ICONS: Record<QuickFilterId, React.ElementType> = {
+const QUICK_FILTER_ICONS: Record<CategoryQuickFilterId, React.ElementType> = {
   nearby: MapPin,
-  'top-rated': Star,
   'available-now': Zap,
+  'small-dogs': Star,
+  overnight: Moon,
+  'multi-pet': Home,
+  experienced: Star,
+  'open-now': Zap,
+  emergency: Stethoscope,
+  nearest: MapPin,
 };
 
 interface HomeScreenProps {
@@ -38,17 +52,18 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
   const { t } = useLanguage();
-  const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
-  const [liveWalkers, setLiveWalkers] = useState<Walker[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<Walker | null>(null);
+  const [liveProviders, setLiveProviders] = useState<Walker[]>([]);
   const tickRef = useRef(0);
 
   const {
+    category,
+    setCategory,
     searchQuery,
     setSearchQuery,
-    filters,
     draftFilters,
     setDraftFilters,
-    filteredWalkers,
+    filteredProviders,
     filteredAvailableCount,
     activeFilterCount,
     showFilterSheet,
@@ -59,17 +74,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     clearAllFilters,
     handleQuickFilterToggle,
     isQuickFilterActive,
-  } = useWalkerFilters(liveWalkers);
+    draftResultCount,
+  } = useHomeDiscovery(liveProviders);
+
+  const categoryMeta = useMemo(
+    () => HOME_CATEGORIES.find((entry) => entry.id === category) ?? HOME_CATEGORIES[0],
+    [category]
+  );
+
+  const quickFilters = QUICK_FILTERS_BY_CATEGORY[category];
 
   useEffect(() => {
-    setLiveWalkers(MOCK_WALKERS);
+    setLiveProviders(MOCK_WALKERS);
 
     const interval = window.setInterval(() => {
       tickRef.current += 1;
-      setLiveWalkers((prev) =>
-        prev.map((walker, index) => ({
-          ...walker,
-          position: nudgeWalkerPosition(walker.position, tickRef.current + index),
+      setLiveProviders((prev) =>
+        prev.map((provider, index) => ({
+          ...provider,
+          position: nudgeWalkerPosition(provider.position, tickRef.current + index),
         }))
       );
     }, 8000);
@@ -78,27 +101,56 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
   }, []);
 
   useEffect(() => {
-    if (selectedWalker && !filteredWalkers.some((walker) => walker.id === selectedWalker.id)) {
-      setSelectedWalker(null);
-    }
-  }, [filteredWalkers, selectedWalker]);
+    setSelectedProvider(null);
+  }, [category]);
 
-  const draftResultCount = filterWalkers(liveWalkers, draftFilters, searchQuery).length;
+  useEffect(() => {
+    if (
+      selectedProvider &&
+      !filteredProviders.some((provider) => provider.id === selectedProvider.id)
+    ) {
+      setSelectedProvider(null);
+    }
+  }, [filteredProviders, selectedProvider]);
+
+  const handleCategoryChange = (next: HomeServiceCategory) => {
+    setCategory(next);
+  };
 
   return (
     <div className="h-full flex flex-col bg-background-secondary overflow-hidden">
-      <div className="relative h-[360px] overflow-hidden shrink-0">
-        <HomeMapCanvas
-          walkers={filteredWalkers}
-          selectedWalkerId={selectedWalker?.id}
-          onSelectWalker={setSelectedWalker}
-          availableCount={filteredAvailableCount}
-          totalCount={filteredWalkers.length}
-        />
+      <HomeCategoryTabs activeCategory={category} onChange={handleCategoryChange} />
+
+      <div className="relative h-[320px] overflow-hidden shrink-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={category}
+            initial={{ opacity: 0.6 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0.6 }}
+            transition={{ duration: 0.25 }}
+            className="absolute inset-0"
+          >
+            <HomeMapCanvas
+              walkers={filteredProviders}
+              category={category}
+              selectedWalkerId={selectedProvider?.id}
+              onSelectWalker={setSelectedProvider}
+              availableCount={filteredAvailableCount}
+              totalCount={filteredProviders.length}
+            />
+          </motion.div>
+        </AnimatePresence>
 
         <div className="absolute top-4 left-4 right-4 z-30">
           <SearchBar
-            placeholder={t('home.search')}
+            placeholder={
+              category === 'veterinary'
+                ? 'Buscar clínicas o veterinarios...'
+                : category === 'caregivers'
+                  ? 'Buscar cuidadores...'
+                  : t('home.search')
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onClear={() => setSearchQuery('')}
@@ -118,7 +170,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
 
       <div className="px-4 py-3 bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          {QUICK_FILTER_OPTIONS.map((filter) => {
+          {quickFilters.map((filter) => {
             const Icon = QUICK_FILTER_ICONS[filter.id];
             const isActive = isQuickFilterActive(filter.id);
             return (
@@ -144,9 +196,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
 
       <div className="px-4 py-3 bg-background flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-lg font-bold">{t('home.nearby')}</h2>
+          <h2 className="text-lg font-bold">{categoryMeta.resultsTitle}</h2>
           <p className="text-sm text-muted-foreground">
-            {filteredWalkers.length} paseador{filteredWalkers.length === 1 ? '' : 'es'}{' '}
+            {filteredProviders.length} resultado{filteredProviders.length === 1 ? '' : 's'}{' '}
             {activeFilterCount > 0 || searchQuery ? 'encontrados' : 'cerca'}
           </p>
         </div>
@@ -180,51 +232,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                 <Card key={i} className="h-28 bg-muted/30 animate-pulse" />
               ))}
             </motion.div>
-          ) : filteredWalkers.length === 0 ? (
+          ) : filteredProviders.length === 0 ? (
             <motion.div
-              key="empty"
+              key={`empty-${category}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               className="text-center py-12"
             >
-              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <SlidersHorizontal className="w-10 h-10 text-muted-foreground" />
+              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                {categoryMeta.icon}
               </div>
-              <h3 className="font-bold text-lg mb-2">No hay resultados</h3>
-              <p className="text-muted-foreground mb-4">Intenta ajustar tus filtros o búsqueda</p>
+              <h3 className="font-bold text-lg mb-2">{categoryMeta.emptyTitle}</h3>
+              <p className="text-muted-foreground mb-4">{categoryMeta.emptyDescription}</p>
               <Button variant="outline" onClick={clearAllFilters}>
                 Limpiar filtros
               </Button>
             </motion.div>
           ) : (
             <motion.div
-              key="results"
+              key={`results-${category}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="space-y-2.5"
             >
-              {filteredWalkers.map((walker, index) => (
+              {filteredProviders.map((provider, index) => (
                 <motion.div
-                  key={walker.id}
+                  key={provider.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.04 }}
                   layout
                 >
                   <Card
-                    onClick={() => onWalkerClick(walker)}
+                    onClick={() => onWalkerClick(provider)}
                     hoverable
                     variant="elevated"
-                    className={`relative overflow-hidden ${!walker.available ? 'opacity-95' : ''}`}
+                    className={`relative overflow-hidden ${!provider.available ? 'opacity-95' : ''}`}
                   >
                     <div className="flex gap-4">
                       <div className="relative shrink-0">
-                        <Avatar emoji={walker.avatar} size="xl" />
+                        <Avatar emoji={provider.avatar} size="xl" />
                         <span
                           className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${
-                            walker.available ? 'bg-success' : 'bg-muted-foreground/50'
+                            provider.available ? 'bg-success' : 'bg-muted-foreground/50'
                           }`}
                         />
                       </div>
@@ -232,54 +284,65 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2 min-w-0">
-                            <h3 className="font-semibold text-base truncate">{walker.name}</h3>
-                            {walker.verified && (
+                            <h3 className="font-semibold text-base truncate">{provider.name}</h3>
+                            {provider.verified && (
                               <Verified className="w-4 h-4 text-primary fill-primary shrink-0" />
                             )}
                           </div>
-                          <WalkerAvailabilityBadge walker={walker} size="sm" />
+                          <WalkerAvailabilityBadge walker={provider} size="sm" />
                         </div>
 
                         <div className="flex items-center gap-3 text-sm mb-2.5 flex-wrap">
                           <div className="flex items-center gap-1">
                             <Star className="w-4 h-4 fill-secondary text-secondary" />
-                            <span className="font-semibold text-foreground">{walker.rating}</span>
-                            <span className="text-xs text-muted-foreground">({walker.reviews})</span>
+                            <span className="font-semibold text-foreground">{provider.rating}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({provider.reviews})
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <MapPin className="w-3.5 h-3.5" />
-                            <span className="text-xs font-medium">{walker.distance} km</span>
+                            <span className="text-xs font-medium">{provider.distance} km</span>
                           </div>
-                          {walker.available && walker.responseTime <= 3 && (
-                            <Badge variant="warning" size="sm">
-                              <Zap className="w-3 h-3" />
-                              Rápido
-                            </Badge>
-                          )}
-                          {walker.available && walker.responseTime > 3 && (
-                            <div className="flex items-center gap-1 text-success">
-                              <Clock className="w-3.5 h-3.5" />
-                              <span className="text-xs font-medium">~{walker.responseTime} min</span>
-                            </div>
-                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {getWalkerHomeCategory(provider) === 'walkers' &&
+                            provider.walkDurations?.slice(0, 2).map((duration) => (
+                              <Badge key={duration} size="sm">
+                                {duration} min
+                              </Badge>
+                            ))}
+                          {getWalkerHomeCategory(provider) === 'caregivers' &&
+                            provider.caregiverServices?.map((service) => (
+                              <Badge key={service} size="sm">
+                                {service === 'overnight'
+                                  ? 'Nocturno'
+                                  : service === 'in-home'
+                                    ? 'En casa'
+                                    : 'Multi-mascota'}
+                              </Badge>
+                            ))}
+                          {getWalkerHomeCategory(provider) === 'veterinary' &&
+                            provider.vetServices?.map((service) => (
+                              <Badge key={service} size="sm">
+                                {service === 'emergency'
+                                  ? 'Emergencias'
+                                  : service === 'vaccination'
+                                    ? 'Vacunas'
+                                    : 'Grooming'}
+                              </Badge>
+                            ))}
                         </div>
 
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge variant="success" size="sm">
-                              {walker.experience} {t('walker.years')}
-                            </Badge>
-                            {walker.acceptedSpecies?.includes('cat') && (
-                              <Badge size="sm">🐈 Gatos</Badge>
-                            )}
-                            {walker.acceptedSpecies?.includes('dog') && (
-                              <Badge size="sm">🐕 Perros</Badge>
-                            )}
-                          </div>
+                          <Badge variant="success" size="sm">
+                            {provider.experience} {t('walker.years')}
+                          </Badge>
                           <div className="text-right shrink-0">
                             <p className="text-xs text-muted-foreground">{t('from')}</p>
                             <p className="font-bold text-primary text-lg">
-                              ${walker.price.toLocaleString()}
+                              ${provider.price.toLocaleString()}
                             </p>
                           </div>
                         </div>
@@ -293,8 +356,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
         </AnimatePresence>
       </div>
 
-      <WalkerFilterSheet
+      <CategoryFilterSheet
         open={showFilterSheet}
+        category={category}
         draft={draftFilters}
         onDraftChange={setDraftFilters}
         onApply={applyDraftFilters}
@@ -305,60 +369,52 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
       />
 
       <AnimatePresence>
-        {selectedWalker && (
+        {selectedProvider && (
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             className="absolute bottom-20 left-0 right-0 bg-card rounded-t-3xl shadow-2xl border-t border-border p-4 pb-6 z-40"
-            onClick={() => setSelectedWalker(null)}
+            onClick={() => setSelectedProvider(null)}
           >
             <div className="w-12 h-1 bg-border rounded-full mx-auto mb-4" />
 
             <div className="flex items-center gap-4">
               <div className="relative shrink-0">
-                <Avatar emoji={selectedWalker.avatar} size="xl" />
+                <Avatar emoji={selectedProvider.avatar} size="xl" />
                 <span
                   className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${
-                    selectedWalker.available ? 'bg-success' : 'bg-muted-foreground/50'
+                    selectedProvider.available ? 'bg-success' : 'bg-muted-foreground/50'
                   }`}
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-lg truncate">{selectedWalker.name}</h3>
-                  {selectedWalker.verified && (
+                  <h3 className="font-bold text-lg truncate">{selectedProvider.name}</h3>
+                  {selectedProvider.verified && (
                     <Verified className="w-4 h-4 text-primary fill-primary shrink-0" />
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-sm mb-2">
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-secondary text-secondary" />
-                    <span className="font-semibold">{selectedWalker.rating}</span>
+                    <span className="font-semibold">{selectedProvider.rating}</span>
                   </div>
                   <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground">{selectedWalker.distance} km</span>
-                  {selectedWalker.available && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-success font-medium">
-                        ~{selectedWalker.responseTime} min
-                      </span>
-                    </>
-                  )}
+                  <span className="text-muted-foreground">{selectedProvider.distance} km</span>
                 </div>
-                <WalkerAvailabilityBadge walker={selectedWalker} size="md" />
+                <WalkerAvailabilityBadge walker={selectedProvider} size="md" />
               </div>
               <Button
                 size="sm"
-                variant={selectedWalker.available ? 'default' : 'outline'}
+                variant={selectedProvider.available ? 'default' : 'outline'}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onWalkerClick(selectedWalker);
+                  onWalkerClick(selectedProvider);
                 }}
               >
-                {selectedWalker.available ? 'Reservar' : 'Agendar'}
+                {selectedProvider.available ? 'Reservar' : 'Agendar'}
               </Button>
             </div>
           </motion.div>
