@@ -52,6 +52,16 @@ export type {
   CheckoutPaymentSelection,
 } from './paymentMethod';
 
+export type {
+  PetCareReminder,
+  PetCareReminderRow,
+  ReminderCategory,
+  ReminderStatus,
+  ReminderFilterTab,
+  CreateReminderInput,
+  UpdateReminderInput,
+} from './reminder';
+
 /** @deprecated import from homeDiscovery */
 export type { WalkerFilterState } from './homeDiscovery';
 export { DEFAULT_WALKER_FILTERS } from './homeDiscovery';

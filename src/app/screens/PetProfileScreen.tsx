@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Shield,
   Loader2,
+  Bell,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useUserData } from '@/contexts/UserDataContext';
@@ -40,12 +41,18 @@ import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 import { ConfirmDialog } from '../components/pets/ConfirmDialog';
+import { useReminders } from '@/contexts/RemindersContext';
 
 type Pet = PetType & { vaccinations?: Vaccination[] };
 
-export const PetProfileScreen: React.FC = () => {
+interface PetProfileScreenProps {
+  onOpenReminders?: () => void;
+}
+
+export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenReminders }) => {
   const { t } = useLanguage();
   const { pets, setPets, userId, isLoading, refreshUserData } = useUserData();
+  const { statusCounts } = useReminders();
   const [isSaving, setIsSaving] = useState(false);
   const [vaccineError, setVaccineError] = useState<string | null>(null);
   const [isSavingVaccine, setIsSavingVaccine] = useState(false);
@@ -381,6 +388,32 @@ export const PetProfileScreen: React.FC = () => {
       </div>
 
       <div className="p-4">
+        {onOpenReminders && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={onOpenReminders}
+            className="w-full mb-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-accent/10 p-4 flex items-center gap-3 text-left"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+              <Bell className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">{t('reminders.title')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {statusCounts.upcoming + statusCounts.overdue > 0
+                  ? t('reminders.sectionPending').replace(
+                      '{count}',
+                      String(statusCounts.upcoming + statusCounts.overdue)
+                    )
+                  : t('reminders.sectionEmpty')}
+              </p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+          </motion.button>
+        )}
+
         {/* Empty State */}
         {pets.length === 0 && (
           <motion.div

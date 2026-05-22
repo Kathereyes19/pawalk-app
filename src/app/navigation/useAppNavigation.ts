@@ -274,6 +274,14 @@ export function useAppNavigation() {
     setActiveTab('bookings');
   }, []);
 
+  const handleOpenReminders = useCallback(() => {
+    setCurrentScreen('reminders');
+  }, []);
+
+  const handleBackFromReminders = useCallback(() => {
+    setCurrentScreen(POST_AUTH_HOME);
+  }, []);
+
   const handleViewReservations = useCallback(() => {
     setActiveTab('bookings');
     setCurrentScreen(POST_AUTH_HOME);
@@ -383,6 +391,8 @@ export function useAppNavigation() {
       handleViewTracking,
       handleViewWalkDetail,
       handleBackFromWalkDetail,
+      handleOpenReminders,
+      handleBackFromReminders,
       handleWalkComplete,
       handleBackFromTracking,
       handleBackHome,

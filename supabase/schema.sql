@@ -164,3 +164,33 @@ create policy "Users can manage own payment methods"
   on public.payment_methods for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Pet care reminders
+create table if not exists public.pet_care_reminders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  pet_id uuid references public.pets (id) on delete set null,
+  pet_name text,
+  title text not null,
+  category text not null check (
+    category in ('vaccination', 'medication', 'deworming', 'walks', 'feeding', 'grooming', 'vet_visit')
+  ),
+  notes text,
+  due_date date not null,
+  due_time time not null default '09:00',
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  notified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists pet_care_reminders_user_id_idx on public.pet_care_reminders (user_id);
+create index if not exists pet_care_reminders_due_idx on public.pet_care_reminders (user_id, due_date, due_time);
+
+alter table public.pet_care_reminders enable row level security;
+
+create policy "Users can manage own pet care reminders"
+  on public.pet_care_reminders for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

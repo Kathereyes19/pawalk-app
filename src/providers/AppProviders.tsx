@@ -4,7 +4,9 @@ import { LanguageProvider } from '@/app/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { UserDataProvider } from '@/contexts/UserDataContext';
 import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
+import { RemindersProvider } from '@/contexts/RemindersContext';
 import { ReservationsProvider } from '@/contexts/ReservationsContext';
+import { ReminderAlertOverlay } from '@/app/components/reminders/ReminderAlertOverlay';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -21,7 +23,12 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         <AuthProvider>
           <UserDataProvider>
             <PaymentMethodsProvider>
-              <ReservationsProvider>{children}</ReservationsProvider>
+              <RemindersProvider>
+                <ReservationsProvider>
+                  {children}
+                  <ReminderAlertOverlay />
+                </ReservationsProvider>
+              </RemindersProvider>
             </PaymentMethodsProvider>
           </UserDataProvider>
         </AuthProvider>
