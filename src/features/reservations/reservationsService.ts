@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/config/env';
 import { ensureReservationId } from '@/lib/reservationId';
+import { isValidUuid } from '@/lib/petId';
 import {
   loadStoredReservations,
   saveStoredReservations,
@@ -26,6 +27,7 @@ import {
 } from './reservationUtils';
 import type {
   BookingData,
+  HomeServiceCategory,
   Reservation,
   ReservationPet,
   ReservationRow,
@@ -72,6 +74,25 @@ function applyCompletionMetrics(reservation: Reservation): Reservation {
   };
 }
 
+function formatScheduledTime(value?: string | null): string {
+  if (!value) return '10:00';
+  return value.length === 5 ? value : value.slice(0, 5);
+}
+
+function mergeReservationFromRow(row: ReservationRow, fallback: Reservation): Reservation {
+  const mapped = mapRowToReservation(row);
+  return normalizeReservationCategory({
+    ...mapped,
+    serviceCategory: row.service_category ?? fallback.serviceCategory,
+    serviceType: row.service_type ?? fallback.serviceType ?? null,
+    selectedServiceId: row.selected_service_id ?? fallback.selectedServiceId ?? null,
+    selectedServiceName: row.selected_service_name ?? fallback.selectedServiceName ?? null,
+    careInstructions: row.care_instructions ?? fallback.careInstructions ?? null,
+    isOvernight: row.is_overnight ?? fallback.isOvernight ?? false,
+    institutionAddress: row.institution_address ?? fallback.institutionAddress ?? null,
+  });
+}
+
 function mapRowToReservation(row: ReservationRow): Reservation {
   const pets = buildPetsFromRow(row);
   return {
@@ -84,7 +105,7 @@ function mapRowToReservation(row: ReservationRow): Reservation {
     petName: pets.map((pet) => pet.name).join(', ') || row.pet_name,
     pets,
     scheduledDate: row.scheduled_date,
-    scheduledTime: row.scheduled_time.length === 5 ? row.scheduled_time : row.scheduled_time.slice(0, 5),
+    scheduledTime: formatScheduledTime(row.scheduled_time),
     durationMinutes: row.duration_minutes,
     serviceCategory: row.service_category ?? 'walkers',
     serviceType: row.service_type ?? null,
@@ -110,10 +131,23 @@ function mapRowToReservation(row: ReservationRow): Reservation {
   };
 }
 
-function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'created_at' | 'updated_at'> {
+function resolvePersistablePets(reservation: Reservation): ReservationPet[] {
   const pets = reservation.pets?.length
     ? reservation.pets
     : [{ id: reservation.petId ?? 'unknown', name: reservation.petName }];
+  return pets.map((pet) => ({
+    id: pet.id,
+    name: pet.name,
+    avatar: pet.avatar,
+  }));
+}
+
+function mapReservationToLegacyRow(
+  reservation: Reservation
+): Omit<ReservationRow, 'created_at' | 'updated_at' | 'service_category' | 'service_type' | 'selected_service_id' | 'selected_service_name' | 'care_instructions' | 'is_overnight' | 'institution_address'> {
+  const pets = resolvePersistablePets(reservation);
+  const validPetIds = pets.map((pet) => pet.id).filter((id) => isValidUuid(id));
+  const primaryPetId = validPetIds[0] ?? null;
 
   return {
     id: reservation.id,
@@ -121,21 +155,14 @@ function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'cr
     walker_id: reservation.walkerId,
     walker_name: reservation.walkerName,
     walker_avatar: reservation.walkerAvatar,
-    pet_id: pets[0]?.id ?? reservation.petId,
+    pet_id: primaryPetId,
     pet_name: pets.map((pet) => pet.name).join(', ') || reservation.petName,
-    pet_ids: pets.map((pet) => pet.id),
+    pet_ids: validPetIds,
     pet_names: pets.map((pet) => pet.name),
     pet_avatars: pets.map((pet) => pet.avatar ?? ''),
     scheduled_date: reservation.scheduledDate,
     scheduled_time: reservation.scheduledTime,
     duration_minutes: reservation.durationMinutes,
-    service_category: reservation.serviceCategory ?? 'walkers',
-    service_type: reservation.serviceType ?? null,
-    selected_service_id: reservation.selectedServiceId ?? null,
-    selected_service_name: reservation.selectedServiceName ?? null,
-    care_instructions: reservation.careInstructions ?? null,
-    is_overnight: reservation.isOvernight ?? false,
-    institution_address: reservation.institutionAddress ?? null,
     status: reservation.status,
     service_price: reservation.servicePrice,
     platform_fee: reservation.platformFee,
@@ -149,6 +176,110 @@ function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'cr
     summary_pace_kmh: reservation.summaryPaceKmh ?? null,
     summary_calories: reservation.summaryCalories ?? null,
   };
+}
+
+function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'created_at' | 'updated_at'> {
+  const pets = resolvePersistablePets(reservation);
+  const validPetIds = pets.map((pet) => pet.id).filter((id) => isValidUuid(id));
+  const primaryPetId = validPetIds[0] ?? null;
+
+  return {
+    ...mapReservationToLegacyRow(reservation),
+    service_category: reservation.serviceCategory ?? 'walkers',
+    service_type: reservation.serviceType ?? null,
+    selected_service_id: reservation.selectedServiceId ?? null,
+    selected_service_name: reservation.selectedServiceName ?? null,
+    care_instructions: reservation.careInstructions ?? null,
+    is_overnight: reservation.isOvernight ?? false,
+    institution_address: reservation.institutionAddress ?? null,
+    pet_id: primaryPetId,
+    pet_ids: validPetIds,
+  };
+}
+
+function upsertLocalReservation(userId: string, reservation: Reservation): void {
+  const existing = loadStoredReservations(userId);
+  saveStoredReservations(userId, [
+    reservation,
+    ...existing.filter((item) => item.id !== reservation.id),
+  ]);
+}
+
+function isSchemaMismatchError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('could not find') ||
+    normalized.includes('does not exist')
+  );
+}
+
+function isForeignKeyError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('foreign key') || normalized.includes('violates foreign key');
+}
+
+async function persistReservationRecord(
+  userId: string,
+  reservation: Reservation
+): Promise<{ reservation: Reservation; error: Error | null }> {
+  const normalized = normalizeReservationCategory(reservation);
+  upsertLocalReservation(userId, normalized);
+
+  if (!isSupabaseConfigured()) {
+    return { reservation: normalized, error: null };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { reservation: normalized, error: null };
+  }
+
+  const attempts: Array<Record<string, unknown>> = [
+    mapReservationToRow(normalized),
+    mapReservationToLegacyRow(normalized),
+    { ...mapReservationToLegacyRow(normalized), pet_id: null, pet_ids: [] },
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const row of attempts) {
+    const { data, error } = await supabase.from('bookings').insert(row).select('*').single();
+    if (!error && data) {
+      return {
+        reservation: mergeReservationFromRow(data as ReservationRow, normalized),
+        error: null,
+      };
+    }
+
+    const message = error?.message ?? 'Could not save reservation';
+    lastError = new Error(message);
+
+    if (!isSchemaMismatchError(message) && !isForeignKeyError(message)) {
+      break;
+    }
+  }
+
+  if (lastError) {
+    console.warn('[Pawalk] Supabase booking sync failed; kept local reservation.', lastError.message);
+  }
+
+  return {
+    reservation: normalized,
+    error: null,
+  };
+}
+
+function getAvailabilityErrorMessage(category: HomeServiceCategory): string {
+  switch (category) {
+    case 'caregivers':
+      return 'El horario seleccionado es anterior a la disponibilidad del cuidador.';
+    case 'veterinary':
+      return 'El horario seleccionado es anterior a la disponibilidad del centro.';
+    default:
+      return 'El horario seleccionado es anterior a la disponibilidad del paseador.';
+  }
 }
 
 function applyAutoStatus(reservation: Reservation, now = new Date()): Reservation {
@@ -257,12 +388,30 @@ export async function fetchReservationsByUserId(
     .order('scheduled_time', { ascending: false });
 
   if (error) {
-    return { reservations: [], error: new Error(error.message) };
+    const stored = loadStoredReservations(userId)
+      .map(normalizeReservation)
+      .map((item) => applyAutoStatus(item));
+    return { reservations: sortReservations(stored), error: new Error(error.message) };
   }
 
-  const raw = (data as ReservationRow[]).map(mapRowToReservation);
-  const withStatus = raw.map((item) => applyAutoStatus(item));
-  const synced = await syncReservationUpdates(userId, raw, withStatus);
+  const localById = new Map(
+    loadStoredReservations(userId).map((item) => [item.id, normalizeReservationCategory(item)])
+  );
+
+  const raw = (data as ReservationRow[]).map((row) => {
+    const local = localById.get(row.id);
+    return local ? mergeReservationFromRow(row, local) : mapRowToReservation(row);
+  });
+
+  const remoteIds = new Set(raw.map((item) => item.id));
+  const localOnly = [...localById.values()].filter((item) => !remoteIds.has(item.id));
+  const merged = [...raw, ...localOnly];
+  const withStatus = merged.map((item) => applyAutoStatus(item));
+  saveStoredReservations(
+    userId,
+    sortReservations(withStatus).map((item) => normalizeReservationCategory(item))
+  );
+  const synced = await syncReservationUpdates(userId, merged, withStatus);
   return { reservations: sortReservations(synced), error: null };
 }
 
@@ -304,9 +453,7 @@ export async function createReservation(
   if (isBeforeWalkerAvailability(scheduledDate, scheduledTime, input.walker)) {
     return {
       reservation: null,
-      error: new Error(
-        'El horario seleccionado es anterior a la disponibilidad del paseador.'
-      ),
+      error: new Error(getAvailabilityErrorMessage(serviceCategory)),
     };
   }
 
@@ -365,26 +512,8 @@ export async function createReservation(
     updatedAt: now,
   };
 
-  if (!isSupabaseConfigured()) {
-    const existing = loadStoredReservations(userId);
-    const next = [reservation, ...existing];
-    saveStoredReservations(userId, next);
-    return { reservation, error: null };
-  }
-
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return { reservation, error: null };
-  }
-
-  const row = mapReservationToRow(reservation);
-  const { data, error } = await supabase.from('bookings').insert(row).select('*').single();
-
-  if (error) {
-    return { reservation: null, error: new Error(error.message) };
-  }
-
-  return { reservation: mapRowToReservation(data as ReservationRow), error: null };
+  const { reservation: persisted } = await persistReservationRecord(userId, reservation);
+  return { reservation: persisted, error: null };
 }
 
 export async function updateReservationStatus(

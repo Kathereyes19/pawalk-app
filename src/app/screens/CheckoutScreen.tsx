@@ -20,7 +20,7 @@ interface CheckoutScreenProps {
   walker: Walker;
   bookingData: BookingData;
   onBack: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<{ error?: string | null } | void>;
 }
 
 export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
@@ -34,6 +34,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const petCount = Math.max(1, bookingData.pets?.length ?? 1);
   const category = bookingData.serviceCategory ?? getWalkerHomeCategory(walker);
@@ -74,21 +75,35 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     },
   ];
 
+  const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
   const handlePayment = async () => {
+    if (isProcessing) return;
+
+    setPaymentError(null);
     setIsProcessing(true);
     setProcessingStage(0);
 
-    // Stage 1: Validating
-    setTimeout(() => setProcessingStage(1), 500);
-    // Stage 2: Processing
-    setTimeout(() => setProcessingStage(2), 1200);
-    // Stage 3: Confirming
-    setTimeout(() => setProcessingStage(3), 2000);
-    // Complete
-    setTimeout(() => {
+    try {
+      await delay(500);
+      setProcessingStage(1);
+      await delay(700);
+      setProcessingStage(2);
+      await delay(800);
+      setProcessingStage(3);
+      await delay(800);
+
+      const result = await onConfirm();
+      if (result?.error) {
+        setPaymentError(result.error);
+      }
+    } catch (err) {
+      setPaymentError(
+        err instanceof Error ? err.message : 'No se pudo confirmar la reserva. Intenta de nuevo.'
+      );
+    } finally {
       setIsProcessing(false);
-      onConfirm();
-    }, 2800);
+    }
   };
 
   const processingStages = [
@@ -515,6 +530,22 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
               </div>
             </motion.div>
           )}
+
+          <AnimatePresence>
+            {paymentError && !isProcessing && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="mb-3 p-3 rounded-xl border border-destructive/20 bg-destructive/5"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-sm text-destructive font-medium">{paymentError}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <Button
             fullWidth

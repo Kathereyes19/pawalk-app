@@ -224,11 +224,17 @@ export function useAppNavigation() {
     setCurrentScreen('checkout');
   }, []);
 
-  const handleCheckoutConfirm = useCallback(async () => {
+  const handleCheckoutConfirm = useCallback(async (): Promise<{ error: string | null }> => {
     setIsNavigating(true);
+    try {
+      if (!selectedWalker || !bookingData) {
+        return { error: 'Faltan datos de la reserva. Vuelve atrás e intenta de nuevo.' };
+      }
+      if (!resolvedUserId) {
+        return { error: 'Inicia sesión para confirmar la reserva.' };
+      }
 
-    if (selectedWalker && bookingData && resolvedUserId) {
-      await bookReservation({
+      const { error } = await bookReservation({
         walker: selectedWalker,
         bookingData,
         pets: bookingData.pets,
@@ -236,10 +242,21 @@ export function useAppNavigation() {
         petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
         paymentMethod: 'card',
       });
-    }
 
-    setIsNavigating(false);
-    setCurrentScreen('confirmed');
+      if (error) {
+        return { error };
+      }
+
+      setCurrentScreen('confirmed');
+      return { error: null };
+    } catch (err) {
+      return {
+        error:
+          err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
+      };
+    } finally {
+      setIsNavigating(false);
+    }
   }, [selectedWalker, bookingData, resolvedUserId, bookReservation]);
 
   const handleViewWalkDetail = useCallback((reservation: Reservation) => {
@@ -256,6 +273,8 @@ export function useAppNavigation() {
   const handleViewReservations = useCallback(() => {
     setActiveTab('bookings');
     setCurrentScreen(POST_AUTH_HOME);
+    setBookingData(null);
+    setSelectedWalker(null);
   }, []);
 
   const handleViewTracking = useCallback(
@@ -290,6 +309,8 @@ export function useAppNavigation() {
     setCurrentScreen(POST_AUTH_HOME);
     setActiveTab('home');
     setActiveReservation(null);
+    setBookingData(null);
+    setSelectedWalker(null);
   }, []);
 
   const handleTabChange = useCallback(

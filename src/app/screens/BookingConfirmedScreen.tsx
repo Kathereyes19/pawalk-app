@@ -46,6 +46,20 @@ export const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
         ? 'Recibirás actualizaciones durante el periodo de cuidado.'
         : 'Presenta esta confirmación en recepción el día de tu cita.';
 
+  const confirmedTitle =
+    category === 'caregivers'
+      ? '¡Cuidado reservado!'
+      : category === 'veterinary'
+        ? '¡Cita confirmada!'
+        : t('booking.confirmed.title');
+
+  const confirmedSubtitle =
+    category === 'caregivers'
+      ? 'Tu reserva de cuidado quedó registrada correctamente.'
+      : category === 'veterinary'
+        ? 'Tu cita en el centro de servicios fue confirmada.'
+        : t('booking.confirmed.subtitle');
+
   return (
     <div className="h-full overflow-y-auto pb-24 p-4 flex flex-col items-center justify-center bg-gradient-to-b from-success/5 via-background to-background">
       <motion.div
@@ -81,8 +95,9 @@ export const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
         transition={{ delay: 0.3 }}
         className="text-center mb-8 px-4"
       >
-        <h1 className="text-3xl font-bold mb-3">{t('booking.confirmed.title')}</h1>
-        <p className="text-foreground-secondary text-lg">{t('booking.confirmed.subtitle')}</p>
+        <h1 className="text-3xl font-bold mb-3">{confirmedTitle}</h1>
+        <p className="text-foreground-secondary text-lg">{confirmedSubtitle}</p>
+        <p className="text-sm text-primary font-medium mt-2">{getCategoryBadgeLabel(category)}</p>
       </motion.div>
 
       <motion.div
@@ -100,6 +115,12 @@ export const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
                 <Sparkles className="w-4 h-4 text-primary" />
               </div>
               <p className="text-sm text-muted-foreground">{providerSubtitle}</p>
+              {category === 'caregivers' && (
+                <p className="text-xs text-primary font-medium mt-1">
+                  {getCategoryBadgeLabel(category)}
+                  {bookingData.isOvernight ? ' · Cuidado nocturno' : ' · Cuidado en casa'}
+                </p>
+              )}
               {category === 'veterinary' && bookingData.selectedServiceName && (
                 <p className="text-xs text-primary font-medium mt-1">
                   {getCategoryBadgeLabel(category)} · {bookingData.selectedServiceName}
