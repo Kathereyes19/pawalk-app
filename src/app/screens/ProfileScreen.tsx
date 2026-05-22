@@ -220,7 +220,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   }
 
   return (
-    <div className="h-full overflow-y-auto pb-24 bg-background-secondary">
+    <div className="h-full overflow-y-auto pb-24 md:pb-6 bg-background-secondary">
       <div className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border px-4 py-4 z-10">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -242,14 +242,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 md:p-6 md:max-w-6xl md:mx-auto md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0 md:items-start">
         <AnimatePresence>
           {status === 'success' && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-2 p-3 rounded-xl bg-success/10 text-success text-sm"
+              className="flex items-center gap-2 p-3 rounded-xl bg-success/10 text-success text-sm md:col-span-2 lg:col-span-3"
             >
               <CheckCircle2 className="w-5 h-5 shrink-0" />
               {t('profile.save.success')}
@@ -260,7 +260,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive text-sm"
+              className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive text-sm md:col-span-2 lg:col-span-3"
             >
               <AlertCircle className="w-5 h-5 shrink-0" />
               {errorMessage || t('profile.save.error')}
@@ -270,7 +270,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {mode === 'view' ? (
           <>
-            <Card padding="lg" variant="elevated">
+            <Card padding="lg" variant="elevated" className="md:col-span-2 lg:col-span-3">
               <div className="flex flex-col items-center text-center">
                 <Avatar
                   {...userAvatarProps}
@@ -472,7 +472,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               size="lg"
               variant="outline"
               onClick={onLogout}
-              className="text-destructive border-destructive/30 hover:bg-destructive/5"
+              className="text-destructive border-destructive/30 hover:bg-destructive/5 md:col-span-2 lg:col-span-3"
             >
               <LogOut className="w-5 h-5" />
               {t('profile.logout')}
@@ -480,7 +480,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </>
         ) : (
           <>
-            <Card padding="lg">
+            <Card padding="lg" className="md:col-span-2 lg:col-span-3">
               <div className="flex flex-col items-center mb-6">
                 <div className="relative">
                   <Avatar
@@ -650,7 +650,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </div>
             </ProfileSectionCard>
 
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-3 pt-1 md:col-span-2 lg:col-span-3">
               <Button
                 fullWidth
                 size="lg"

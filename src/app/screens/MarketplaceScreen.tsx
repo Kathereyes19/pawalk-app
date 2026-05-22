@@ -39,6 +39,7 @@ import { MarketplaceCategoryChips } from '../components/marketplace/MarketplaceC
 import { MarketplaceTrustBar } from '../components/marketplace/MarketplaceTrustBar';
 import { CartItemRow } from '../components/marketplace/CartItemRow';
 import { MarketplaceFilterSheet } from '../components/marketplace/MarketplaceFilterSheet';
+import { MarketplaceFilterSidebar } from '../components/marketplace/MarketplaceFilterSidebar';
 import { OrderCard } from '../components/marketplace/OrderCard';
 import { OrderTrackingStepper } from '../components/marketplace/OrderTrackingStepper';
 import { RecommendedProductsSection } from '../components/marketplace/RecommendedProductsSection';
@@ -153,7 +154,16 @@ function MarketplaceHomeView() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
-    <div className="h-full overflow-y-auto pb-24">
+    <div className="h-full md:flex md:overflow-hidden">
+      <MarketplaceFilterSidebar
+        filters={filters}
+        priceBounds={priceBounds}
+        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+        onReset={resetFilters}
+        resultCount={filteredProducts.length}
+      />
+
+      <div className="flex-1 h-full overflow-y-auto pb-24 md:pb-6">
       <MarketplaceHeader
         title={t('marketplace.title')}
         subtitle={t('marketplace.subtitle')}
@@ -177,7 +187,7 @@ function MarketplaceHomeView() {
             onClick={() => setFiltersOpen(true)}
             variant="outline"
             size="lg"
-            className="shrink-0 shadow-sm"
+            className="shrink-0 shadow-sm md:hidden"
             aria-label="Filtros"
           >
             <SlidersHorizontal className="w-5 h-5 text-primary" />
@@ -224,7 +234,7 @@ function MarketplaceHomeView() {
                 </Button>
               </Card>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredProducts.map((product, index) => (
                   <motion.div
                     key={product.id}
@@ -253,6 +263,7 @@ function MarketplaceHomeView() {
         onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
         onReset={resetFilters}
       />
+      </div>
     </div>
   );
 }

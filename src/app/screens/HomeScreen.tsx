@@ -23,6 +23,7 @@ import { IconButton } from '../components/IconButton';
 import { HomeMapCanvas } from '../components/map/HomeMapCanvas';
 import { HomeCategoryTabs } from '../components/home/HomeCategoryTabs';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
+import { HomeFilterSidebar } from '../components/home/HomeFilterSidebar';
 import { CategoryFilterSheet } from '../components/walker/CategoryFilterSheet';
 import { MOCK_WALKERS, nudgeWalkerPosition } from '@/lib/walkers/mockWalkers';
 import { useHomeDiscovery } from '@/lib/walkers/useHomeDiscovery';
@@ -122,7 +123,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
     <div className="h-full flex flex-col bg-background-secondary overflow-hidden">
       <HomeCategoryTabs activeCategory={category} onChange={handleCategoryChange} />
 
-      <div className="relative h-[320px] overflow-hidden shrink-0">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden md:grid md:grid-cols-[260px_1fr] lg:grid-cols-[260px_minmax(0,1fr)_380px] md:grid-rows-[minmax(280px,42vh)_1fr] lg:grid-rows-[minmax(0,1fr)]">
+        <HomeFilterSidebar
+          category={category}
+          activeFilterCount={activeFilterCount}
+          resultCount={filteredProviders.length}
+          isQuickFilterActive={isQuickFilterActive}
+          onQuickFilterToggle={handleQuickFilterToggle}
+          onOpenAdvanced={openFilterSheet}
+          onClear={clearAllFilters}
+        />
+
+        <div className="relative h-[320px] overflow-hidden shrink-0 md:col-start-2 md:row-start-1 md:h-full md:min-h-[280px] lg:min-h-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={category}
@@ -167,9 +179,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
         >
           <Navigation className="w-5 h-5 text-primary" />
         </IconButton>
-      </div>
+        </div>
 
-      <div className="px-4 py-3 bg-background border-b border-border shrink-0">
+      <div className="px-4 py-3 bg-background border-b border-border shrink-0 md:hidden">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
           {quickFilters.map((filter) => {
             const Icon = QUICK_FILTER_ICONS[filter.id];
@@ -195,6 +207,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
         </div>
       </div>
 
+      <div className="flex flex-col min-h-0 flex-1 md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1 lg:row-span-1 md:overflow-hidden lg:border-l lg:border-border">
       <div className="px-4 py-3 bg-background flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-lg font-bold">{categoryMeta.resultsTitle}</h2>
@@ -203,7 +216,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
             {activeFilterCount > 0 || searchQuery ? 'encontrados' : 'cerca'}
           </p>
         </div>
-        <div className="relative">
+        <div className="relative md:hidden">
           <Button variant="ghost" size="sm" onClick={openFilterSheet}>
             <SlidersHorizontal className="w-4 h-4" />
           </Button>
@@ -219,7 +232,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-24 space-y-2.5">
+      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-24 md:pb-4 space-y-2.5">
         <AnimatePresence mode="wait">
           {isApplying ? (
             <motion.div
@@ -356,6 +369,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
           )}
         </AnimatePresence>
       </div>
+      </div>
+      </div>
 
       <CategoryFilterSheet
         open={showFilterSheet}
@@ -376,10 +391,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onWalkerClick }) => {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="absolute bottom-20 left-0 right-0 bg-card rounded-t-3xl shadow-2xl border-t border-border p-4 pb-6 z-40"
+            className="absolute bottom-20 left-0 right-0 bg-card rounded-t-3xl shadow-2xl border-t border-border p-4 pb-6 z-40 md:bottom-6 md:left-auto md:right-6 md:max-w-sm md:rounded-2xl md:border md:bottom-auto"
             onClick={() => setSelectedProvider(null)}
           >
-            <div className="w-12 h-1 bg-border rounded-full mx-auto mb-4" />
+            <div className="w-12 h-1 bg-border rounded-full mx-auto mb-4 md:hidden" />
 
             <div className="flex items-center gap-4">
               <div className="relative shrink-0">
