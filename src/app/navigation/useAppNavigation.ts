@@ -1,99 +1,204 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserData } from '@/contexts/UserDataContext';
+import { markOnboardingComplete, upsertProfile } from '@/features/profile';
+import { replacePetsForUser } from '@/features/pets';
+import {
+  AUTH_ENTRY_SCREEN,
+  loadUserBundle,
+  requiresAuth,
+  resolveAuthenticatedScreen,
+} from '@/features/user';
+import { clearPendingOnboarding, setPendingOnboarding } from '@/lib/onboardingSession';
+import { resolveUserId } from '@/lib/mockUser';
 import {
   INITIAL_SCREEN,
   POST_AUTH_HOME,
-  resolveInitialScreenForSession,
   type AppScreen,
   type BottomNavTab,
 } from '@/navigation';
-import { markOnboardingComplete, upsertProfile } from '@/features/profile';
-import { syncPetsForUser } from '@/features/pets';
 import type { BookingData, Pet, UserProfile, Walker } from '@/types';
 
-export interface AppNavigationState {
-  currentScreen: AppScreen;
-  activeTab: BottomNavTab;
-  selectedWalker: Walker | null;
-  bookingData: BookingData | null;
-  profileData: UserProfile | null;
-  userPets: Pet[];
-  isNewUser: boolean;
-}
-
 export function useAppNavigation() {
-  const { user, session, isLoading: authLoading } = useAuth();
+  const { session, isLoading: authLoading, signOut } = useAuth();
+  const {
+    userId,
+    profile: profileData,
+    pets: userPets,
+    onboardingCompleted,
+    isLoading: userDataLoading,
+    setProfile,
+    setPets,
+    setOnboardingCompleted,
+    refreshUserData,
+  } = useUserData();
 
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(INITIAL_SCREEN);
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
   const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
-  const [isNewUser, setIsNewUser] = useState(false);
-  const [profileData, setProfileData] = useState<UserProfile | null>(null);
-  const [userPets, setUserPets] = useState<Pet[]>([]);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
+  const hasBootstrapped = useRef(false);
 
-  /** Restore session for returning users (after Supabase bootstrap). */
+  const resolvedUserId = userId ?? resolveUserId(session?.user?.id ?? null);
+  const isAppReady =
+    !authLoading && (!resolvedUserId || !userDataLoading);
+  const isAuthenticated = Boolean(session || resolvedUserId);
+
+  const applyBundleAndNavigate = useCallback(
+    async (uid: string) => {
+      const bundle = await loadUserBundle(uid);
+      setProfile(bundle.profile);
+      setPets(bundle.pets);
+      setOnboardingCompleted(bundle.onboardingCompleted);
+      setCurrentScreen(resolveAuthenticatedScreen(bundle));
+      return bundle;
+    },
+    [setProfile, setPets, setOnboardingCompleted]
+  );
+
+  /** One-time routing after auth + user data are ready */
   useEffect(() => {
-    if (authLoading || !session) return;
+    if (!isAppReady || hasBootstrapped.current) return;
+    hasBootstrapped.current = true;
 
-    const restorable: AppScreen[] = ['welcome', 'login', 'signup'];
-    if (restorable.includes(currentScreen)) {
-      setCurrentScreen(
-        resolveInitialScreenForSession({ hasSession: true, onboardingCompleted: true })
-      );
+    if (!isAuthenticated || !resolvedUserId) {
+      setCurrentScreen(AUTH_ENTRY_SCREEN);
+      return;
     }
-  }, [session, authLoading, currentScreen]);
 
-  const handleSplashComplete = useCallback(() => {
-    setCurrentScreen(session ? POST_AUTH_HOME : 'welcome');
-  }, [session]);
+    void applyBundleAndNavigate(resolvedUserId);
+  }, [isAppReady, isAuthenticated, resolvedUserId, applyBundleAndNavigate]);
+
+  /** Route guard */
+  useEffect(() => {
+    if (!isAppReady) return;
+    if (!isAuthenticated && requiresAuth(currentScreen)) {
+      setCurrentScreen(AUTH_ENTRY_SCREEN);
+    }
+  }, [isAppReady, isAuthenticated, currentScreen]);
+
+  /** Session restore: send completed users to home */
+  useEffect(() => {
+    if (!isAppReady || !resolvedUserId || userDataLoading) return;
+    if (onboardingCompleted && ['login', 'signup'].includes(currentScreen)) {
+      setCurrentScreen(POST_AUTH_HOME);
+    }
+  }, [
+    isAppReady,
+    resolvedUserId,
+    userDataLoading,
+    onboardingCompleted,
+    currentScreen,
+  ]);
+
+  /** Completed users must not see auth/onboarding again */
+  useEffect(() => {
+    if (!isAppReady || !isAuthenticated || !onboardingCompleted) return;
+
+    const blocked: AppScreen[] = [
+      'welcome',
+      'login',
+      'signup',
+      'profile-setup',
+      'pet-setup',
+      'onboarding-complete',
+    ];
+    if (blocked.includes(currentScreen)) {
+      setCurrentScreen(POST_AUTH_HOME);
+      setWelcomeMode('none');
+    }
+  }, [isAppReady, isAuthenticated, onboardingCompleted, currentScreen]);
 
   const handleWelcomeComplete = useCallback(() => {
-    setCurrentScreen('signup');
+    setWelcomeMode('none');
+    setCurrentScreen('profile-setup');
   }, []);
 
   const handleWelcomeLogin = useCallback(() => {
     setCurrentScreen('login');
   }, []);
 
-  const handleLogin = useCallback(() => {
-    setIsNewUser(false);
-    setCurrentScreen(POST_AUTH_HOME);
-  }, []);
+  const handleLogin = useCallback(async () => {
+    clearPendingOnboarding();
+    const uid = resolvedUserId;
+    if (!uid) {
+      setCurrentScreen(AUTH_ENTRY_SCREEN);
+      return;
+    }
+
+    setIsNavigating(true);
+    await refreshUserData();
+    const bundle = await loadUserBundle(uid);
+    setProfile(bundle.profile);
+    setPets(bundle.pets);
+    setOnboardingCompleted(bundle.onboardingCompleted);
+
+    if (bundle.onboardingCompleted) {
+      setCurrentScreen(POST_AUTH_HOME);
+    } else {
+      setCurrentScreen(resolveAuthenticatedScreen(bundle));
+    }
+    setIsNavigating(false);
+  }, [resolvedUserId, refreshUserData, setProfile, setPets, setOnboardingCompleted]);
 
   const handleSignUp = useCallback(() => {
-    setIsNewUser(true);
-    setCurrentScreen('profile-setup');
-  }, []);
+    setPendingOnboarding(true);
+    setWelcomeMode('intro');
+    setOnboardingCompleted(false);
+    setCurrentScreen('welcome');
+  }, [setOnboardingCompleted]);
 
   const handleProfileSetupComplete = useCallback(
     async (data: UserProfile) => {
-      setProfileData(data);
-      if (user?.id) {
-        await upsertProfile(user.id, data);
+      setProfile(data);
+      const uid = resolvedUserId;
+      if (uid) {
+        await upsertProfile(uid, data);
       }
       setCurrentScreen('pet-setup');
     },
-    [user?.id]
+    [resolvedUserId, setProfile]
   );
 
   const handlePetSetupComplete = useCallback(
     async (pets: Pet[]) => {
-      setUserPets(pets);
-      if (user?.id) {
-        await syncPetsForUser(user.id, pets);
+      const uid = resolvedUserId;
+      if (uid) {
+        const { pets: saved, error } = await replacePetsForUser(uid, pets);
+        setPets(error ? pets : saved);
+      } else {
+        setPets(pets);
       }
       setCurrentScreen('onboarding-complete');
     },
-    [user?.id]
+    [resolvedUserId, setPets]
   );
 
   const handleOnboardingComplete = useCallback(async () => {
-    if (user?.id) {
-      await markOnboardingComplete(user.id);
+    const uid = resolvedUserId;
+    if (uid) {
+      await markOnboardingComplete(uid, profileData ?? undefined);
+      await refreshUserData();
     }
+    clearPendingOnboarding();
+    setWelcomeMode('none');
+    setOnboardingCompleted(true);
     setCurrentScreen(POST_AUTH_HOME);
-  }, [user?.id]);
+  }, [resolvedUserId, profileData, setOnboardingCompleted, refreshUserData]);
+
+  const handleLogout = useCallback(async () => {
+    await signOut();
+    clearPendingOnboarding();
+    setWelcomeMode('none');
+    setProfile(null);
+    setPets([]);
+    setOnboardingCompleted(false);
+    setActiveTab('home');
+    hasBootstrapped.current = true;
+    setCurrentScreen(AUTH_ENTRY_SCREEN);
+  }, [signOut, setProfile, setPets, setOnboardingCompleted]);
 
   const handleWalkerClick = useCallback((walker: Walker) => {
     setSelectedWalker(walker);
@@ -122,16 +227,40 @@ export function useAppNavigation() {
     setActiveTab('home');
   }, []);
 
-  const handleTabChange = useCallback((tab: BottomNavTab) => {
-    setActiveTab(tab);
-    if (tab === 'home') {
-      setCurrentScreen(POST_AUTH_HOME);
-    }
-  }, []);
+  const handleTabChange = useCallback(
+    (tab: BottomNavTab) => {
+      if (!isAuthenticated) {
+        setCurrentScreen(AUTH_ENTRY_SCREEN);
+        return;
+      }
+      if (!onboardingCompleted) {
+        setCurrentScreen(
+          resolveAuthenticatedScreen({
+            profile: profileData,
+            pets: userPets,
+            onboardingCompleted,
+          })
+        );
+        return;
+      }
+      setActiveTab(tab);
+      if (tab === 'home') {
+        setCurrentScreen(POST_AUTH_HOME);
+      }
+    },
+    [isAuthenticated, onboardingCompleted, profileData, userPets]
+  );
 
-  const goToScreen = useCallback((screen: AppScreen) => {
-    setCurrentScreen(screen);
-  }, []);
+  const goToScreen = useCallback(
+    (screen: AppScreen) => {
+      if (!isAuthenticated && requiresAuth(screen)) {
+        setCurrentScreen(AUTH_ENTRY_SCREEN);
+        return;
+      }
+      setCurrentScreen(screen);
+    },
+    [isAuthenticated]
+  );
 
   return {
     currentScreen,
@@ -140,9 +269,12 @@ export function useAppNavigation() {
     bookingData,
     profileData,
     userPets,
-    isNewUser,
+    isAppReady,
+    isNavigating,
+    isAuthenticated,
+    onboardingCompleted,
+    welcomeMode,
     handlers: {
-      handleSplashComplete,
       handleWelcomeComplete,
       handleWelcomeLogin,
       handleLogin,
@@ -150,6 +282,7 @@ export function useAppNavigation() {
       handleProfileSetupComplete,
       handlePetSetupComplete,
       handleOnboardingComplete,
+      handleLogout,
       handleWalkerClick,
       handleBookWalk,
       handleBookingContinue,

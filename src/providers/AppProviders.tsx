@@ -2,6 +2,7 @@ import React, { type ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { LanguageProvider } from '@/app/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { UserDataProvider } from '@/contexts/UserDataContext';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -15,7 +16,9 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <LanguageProvider>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <UserDataProvider>{children}</UserDataProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

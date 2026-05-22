@@ -75,6 +75,9 @@ export function shouldShowBottomNav(screen: AppScreen): boolean {
   return !SCREENS_WITHOUT_BOTTOM_NAV.includes(screen);
 }
 
-export const INITIAL_SCREEN: AppScreen = 'splash';
+/** First paint before auth bootstrap completes */
+export const INITIAL_SCREEN: AppScreen = 'login';
+
+export const AUTH_ENTRY_SCREEN: AppScreen = 'login';
 
 export const POST_AUTH_HOME: AppScreen = 'home';

@@ -9,10 +9,17 @@ import iconOnlyLogo from '../../imports/Icon-only_version.png';
 
 interface WelcomeScreenProps {
   onComplete: () => void;
-  onLogin: () => void;
+  onLogin?: () => void;
+  /** Intro slides after registration only — hides login CTA */
+  mode?: 'intro' | 'marketing';
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete, onLogin }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onComplete,
+  onLogin,
+  mode = 'marketing',
+}) => {
+  const isIntro = mode === 'intro';
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const { t, language, setLanguage } = useLanguage();
@@ -251,11 +258,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete, onLogi
         {currentSlide === slides.length - 1 ? (
           <>
             <Button fullWidth size="xl" onClick={onComplete}>
-              {t('get.started')}
+              {isIntro ? t('next') : t('get.started')}
             </Button>
-            <Button fullWidth size="lg" variant="ghost" onClick={onLogin}>
-              {t('login')}
-            </Button>
+            {!isIntro && onLogin && (
+              <Button fullWidth size="lg" variant="ghost" onClick={onLogin}>
+                {t('login')}
+              </Button>
+            )}
           </>
         ) : (
           <Button fullWidth size="xl" onClick={nextSlide}>

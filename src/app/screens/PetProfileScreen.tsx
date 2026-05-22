@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus,
@@ -15,8 +15,15 @@ import {
   Trash2,
   ChevronRight,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useUserData } from '@/contexts/UserDataContext';
+import { replacePetsForUser } from '@/features/pets';
+import { isSupabaseConfigured } from '@/config/env';
+import { addVaccination, deleteVaccination } from '@/features/vaccinations';
+import { createPetId } from '@/lib/petId';
+import type { Pet as PetType, Vaccination } from '@/types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
@@ -24,85 +31,25 @@ import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 
-interface Pet {
-  id: string;
-  name: string;
-  avatar: string;
-  breed: string;
-  age: number;
-  weight: number;
-  behaviors: string[];
-  vaccinated: boolean;
-  vaccinations?: Vaccination[];
-  gender: 'male' | 'female';
-  species: 'dog' | 'cat';
-}
-
-interface Vaccination {
-  id: string;
-  name: string;
-  date: string;
-  nextDue: string;
-  status: 'current' | 'due-soon' | 'overdue';
-}
+type Pet = PetType & { vaccinations?: Vaccination[] };
 
 export const PetProfileScreen: React.FC = () => {
   const { t } = useLanguage();
-  const [pets, setPets] = useState<Pet[]>([
-    {
-      id: '1',
-      name: 'Max',
-      avatar: '🐕',
-      breed: 'Labrador Retriever',
-      age: 3,
-      weight: 28,
-      behaviors: ['friendly', 'energetic'],
-      vaccinated: true,
-      gender: 'male',
-      species: 'dog',
-      vaccinations: [
-        {
-          id: 'v1',
-          name: 'Antirrábica',
-          date: '2025-12-01',
-          nextDue: '2026-12-01',
-          status: 'current',
-        },
-        {
-          id: 'v2',
-          name: 'Parvovirus',
-          date: '2025-11-15',
-          nextDue: '2026-05-15',
-          status: 'due-soon',
-        },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Luna',
-      avatar: '🐈',
-      breed: 'Siamés',
-      age: 2,
-      weight: 4,
-      behaviors: ['shy', 'trained'],
-      vaccinated: true,
-      gender: 'female',
-      species: 'cat',
-      vaccinations: [
-        {
-          id: 'v3',
-          name: 'Triple Felina',
-          date: '2025-10-20',
-          nextDue: '2026-10-20',
-          status: 'current',
-        },
-      ],
-    },
-  ]);
+  const { pets, setPets, userId, isLoading, refreshUserData } = useUserData();
+  const [isSaving, setIsSaving] = useState(false);
+  const [vaccineError, setVaccineError] = useState<string | null>(null);
+  const [isSavingVaccine, setIsSavingVaccine] = useState(false);
 
   const [showAddPet, setShowAddPet] = useState(false);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
+  const [showAddVaccine, setShowAddVaccine] = useState(false);
+  const [vaccineForm, setVaccineForm] = useState({
+    name: '',
+    date: '',
+    nextDue: '',
+    cardImageUrl: '' as string | null,
+  });
   const [formStep, setFormStep] = useState(1);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -169,9 +116,114 @@ export const PetProfileScreen: React.FC = () => {
     }));
   };
 
-  const handleSavePet = () => {
+  useEffect(() => {
+    if (!selectedPet) return;
+    const updated = pets.find((p) => p.id === selectedPet.id);
+    if (updated) setSelectedPet(updated);
+  }, [pets, selectedPet?.id]);
+
+  const updatePetInList = (petId: string, updater: (pet: Pet) => Pet) => {
+    const next = pets.map((p) => (p.id === petId ? updater(p) : p));
+    setPets(next);
+    return next;
+  };
+
+  const handleAddVaccine = async () => {
+    if (!selectedPet || !userId || !vaccineForm.name || !vaccineForm.date || !vaccineForm.nextDue) {
+      setVaccineError('Completa todos los campos obligatorios');
+      return;
+    }
+
+    setIsSavingVaccine(true);
+    setVaccineError(null);
+
+    const { vaccination, pets: updatedPets, error } = await addVaccination(
+      userId,
+      selectedPet.id,
+      {
+        name: vaccineForm.name,
+        date: vaccineForm.date,
+        nextDue: vaccineForm.nextDue,
+        cardImageUrl: vaccineForm.cardImageUrl,
+      }
+    );
+
+    if (error || !vaccination) {
+      setVaccineError(error?.message ?? 'No se pudo guardar la vacuna');
+      setIsSavingVaccine(false);
+      return;
+    }
+
+    const nextPets = updatedPets ?? updatePetInList(selectedPet.id, (pet) => ({
+      ...pet,
+      vaccinated: true,
+      vaccinations: [...(pet.vaccinations ?? []), vaccination],
+    }));
+
+    if (updatedPets) {
+      setPets(updatedPets);
+    } else if (userId) {
+      await refreshUserData();
+    } else {
+      setPets(nextPets);
+    }
+
+    const list = updatedPets ?? nextPets;
+    setSelectedPet(list.find((p) => p.id === selectedPet.id) ?? null);
+    setVaccineForm({ name: '', date: '', nextDue: '', cardImageUrl: null });
+    setShowAddVaccine(false);
+    setIsSavingVaccine(false);
+  };
+
+  const handleDeleteVaccine = async (vaccinationId: string) => {
+    if (!selectedPet || !userId) return;
+
+    const { error } = await deleteVaccination(userId, selectedPet.id, vaccinationId);
+    if (error) {
+      setVaccineError(error.message);
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      const nextPets = updatePetInList(selectedPet.id, (pet) => ({
+        ...pet,
+        vaccinations: (pet.vaccinations ?? []).filter((v) => v.id !== vaccinationId),
+      }));
+      setSelectedPet(nextPets.find((p) => p.id === selectedPet.id) ?? null);
+    } else {
+      await refreshUserData();
+      const updated = pets.find((p) => p.id === selectedPet.id);
+      if (updated) setSelectedPet(updated);
+    }
+  };
+
+  const handleVaccineImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVaccineForm((prev) => ({
+        ...prev,
+        cardImageUrl: reader.result as string,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const persistPets = async (nextPets: Pet[]) => {
+    if (!userId) {
+      setPets(nextPets);
+      return;
+    }
+    setIsSaving(true);
+    const { pets: saved, error } = await replacePetsForUser(userId, nextPets);
+    setPets(error ? nextPets : saved);
+    setIsSaving(false);
+  };
+
+  const handleSavePet = async () => {
     const petToSave: Pet = {
-      id: Date.now().toString(),
+      id: createPetId(),
       name: newPet.name || '',
       avatar: newPet.avatar || avatarOptions[newPet.species as 'dog' | 'cat'][0],
       breed: newPet.breed || '',
@@ -184,7 +236,7 @@ export const PetProfileScreen: React.FC = () => {
       vaccinations: [],
     };
 
-    setPets([...pets, petToSave]);
+    await persistPets([...pets, petToSave]);
     setShowAddPet(false);
     setFormStep(1);
     setNewPet({
@@ -208,6 +260,14 @@ export const PetProfileScreen: React.FC = () => {
     if (daysUntilDue < 30) return { label: 'Próxima', variant: 'warning' as const, icon: Calendar };
     return { label: 'Al día', variant: 'success' as const, icon: Check };
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center pb-24 bg-background-secondary">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" aria-label="Cargando mascotas" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto pb-24 bg-background-secondary">
@@ -672,7 +732,7 @@ export const PetProfileScreen: React.FC = () => {
                       <Syringe className="w-5 h-5 text-primary" />
                       Vacunas
                     </h3>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => setShowAddVaccine(true)}>
                       <Plus className="w-4 h-4" />
                       Agregar
                     </Button>
@@ -692,11 +752,27 @@ export const PetProfileScreen: React.FC = () => {
                                   <p>Aplicada: {new Date(vaccination.date).toLocaleDateString()}</p>
                                   <p>Próxima: {new Date(vaccination.nextDue).toLocaleDateString()}</p>
                                 </div>
+                                {vaccination.cardImageUrl && (
+                                  <img
+                                    src={vaccination.cardImageUrl}
+                                    alt="Carnet de vacunación"
+                                    className="mt-2 w-full max-h-32 object-cover rounded-lg border border-border"
+                                  />
+                                )}
                               </div>
-                              <Badge variant={status.variant} size="sm">
-                                <StatusIcon className="w-3.5 h-3.5" />
-                                {status.label}
-                              </Badge>
+                              <div className="flex flex-col items-end gap-2">
+                                <Badge variant={status.variant} size="sm">
+                                  <StatusIcon className="w-3.5 h-3.5" />
+                                  {status.label}
+                                </Badge>
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteVaccine(vaccination.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </IconButton>
+                              </div>
                             </div>
                           </Card>
                         );
@@ -708,7 +784,7 @@ export const PetProfileScreen: React.FC = () => {
                       <p className="text-sm text-muted-foreground mb-3">
                         No hay vacunas registradas
                       </p>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => setShowAddVaccine(true)}>
                         <Plus className="w-4 h-4" />
                         Agregar primera vacuna
                       </Button>
@@ -716,6 +792,85 @@ export const PetProfileScreen: React.FC = () => {
                   )}
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add vaccine modal */}
+      <AnimatePresence>
+        {showAddVaccine && selectedPet && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-4"
+            onClick={() => setShowAddVaccine(false)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              className="w-full max-w-md bg-card rounded-2xl p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">Nueva vacuna — {selectedPet.name}</h3>
+                <IconButton variant="ghost" onClick={() => setShowAddVaccine(false)}>
+                  <X className="w-5 h-5" />
+                </IconButton>
+              </div>
+
+              {vaccineError && (
+                <p className="text-sm text-destructive mb-3" role="alert">
+                  {vaccineError}
+                </p>
+              )}
+
+              <div className="space-y-4">
+                <Input
+                  label="Nombre de la vacuna"
+                  value={vaccineForm.name}
+                  onChange={(e) => setVaccineForm({ ...vaccineForm, name: e.target.value })}
+                />
+                <Input
+                  label="Fecha de aplicación"
+                  type="date"
+                  value={vaccineForm.date}
+                  onChange={(e) => setVaccineForm({ ...vaccineForm, date: e.target.value })}
+                />
+                <Input
+                  label="Próxima dosis"
+                  type="date"
+                  value={vaccineForm.nextDue}
+                  onChange={(e) => setVaccineForm({ ...vaccineForm, nextDue: e.target.value })}
+                />
+                <div>
+                  <label className="block text-sm font-medium mb-2">Carnet / imagen (opcional)</label>
+                  <label className="flex items-center justify-center gap-2 h-24 border-2 border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Upload className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Subir imagen</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleVaccineImageUpload} />
+                  </label>
+                  {vaccineForm.cardImageUrl && (
+                    <img
+                      src={vaccineForm.cardImageUrl}
+                      alt="Vista previa"
+                      className="mt-2 w-full max-h-28 object-cover rounded-lg"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <Button
+                fullWidth
+                size="lg"
+                className="mt-6"
+                loading={isSavingVaccine}
+                onClick={handleAddVaccine}
+              >
+                Guardar vacuna
+              </Button>
             </motion.div>
           </motion.div>
         )}

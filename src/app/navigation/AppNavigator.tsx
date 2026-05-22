@@ -12,8 +12,8 @@ import {
   OnboardingPetSetupScreen,
   PersonalProfileSetupScreen,
   PetProfileScreen,
+  ProfileScreen,
   SignUpScreen,
-  SplashScreen,
   WalkerProfileScreen,
   WelcomeScreen,
 } from '../screens';
@@ -33,18 +33,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
     selectedWalker,
     bookingData,
     profileData,
-    userPets,
+    welcomeMode,
     handlers,
   } = navigation;
 
   const renderScreen = () => {
     switch (currentScreen) {
-      case 'splash':
-        return <SplashScreen onComplete={handlers.handleSplashComplete} />;
-
       case 'welcome':
         return (
           <WelcomeScreen
+            mode={welcomeMode === 'intro' ? 'intro' : 'marketing'}
             onComplete={handlers.handleWelcomeComplete}
             onLogin={handlers.handleWelcomeLogin}
           />
@@ -53,7 +51,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
       case 'login':
         return (
           <LoginScreen
-            onBack={() => handlers.goToScreen('welcome')}
             onLogin={handlers.handleLogin}
             onSignUp={() => handlers.goToScreen('signup')}
           />
@@ -62,7 +59,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
       case 'signup':
         return (
           <SignUpScreen
-            onBack={() => handlers.goToScreen('welcome')}
+            onBack={() => handlers.goToScreen('login')}
             onSignUp={handlers.handleSignUp}
             onLogin={() => handlers.goToScreen('login')}
           />
@@ -77,9 +74,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return (
           <OnboardingPetSetupScreen
             onComplete={handlers.handlePetSetupComplete}
-            onSkip={() => {
-              handlers.handlePetSetupComplete([]);
-            }}
+            onSkip={() => handlers.handlePetSetupComplete([])}
           />
         );
 
@@ -87,7 +82,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return (
           <OnboardingCompletionScreen
             profileData={profileData}
-            petCount={userPets.length}
+            petCount={navigation.userPets.length}
             onContinue={handlers.handleOnboardingComplete}
           />
         );
@@ -168,15 +163,10 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
 
       case 'profile':
         return (
-          <div className="h-full flex items-center justify-center p-8 text-center overflow-hidden">
-            <div className="pb-20">
-              <div className="w-24 h-24 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center mx-auto mb-4 text-5xl">
-                👤
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Mi Perfil</h2>
-              <p className="text-muted-foreground">Configuración de tu cuenta</p>
-            </div>
-          </div>
+          <ProfileScreen
+            onLogout={handlers.handleLogout}
+            onNavigateToPets={() => handlers.handleTabChange('pets')}
+          />
         );
     }
   };

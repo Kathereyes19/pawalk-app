@@ -20,6 +20,7 @@ import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
+import { createPetId } from '@/lib/petId';
 
 interface Pet {
   id: string;
@@ -112,7 +113,7 @@ export const OnboardingPetSetupScreen: React.FC<OnboardingPetSetupScreenProps> =
 
   const handleSavePet = () => {
     const petToSave: Pet = {
-      id: Date.now().toString(),
+      id: createPetId(),
       name: newPet.name || '',
       avatar: newPet.avatar || avatarOptions[newPet.species as 'dog' | 'cat'][0],
       breed: newPet.breed || '',

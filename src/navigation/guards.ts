@@ -1,23 +1,30 @@
+import {
+  resolveAuthenticatedScreen,
+  AUTH_ENTRY_SCREEN,
+  type UserBundle,
+} from '@/features/user';
 import type { AppScreen } from './screens';
-import { AUTH_SCREENS, POST_AUTH_HOME } from './screens';
 
-/**
- * Resolves the first screen after auth bootstrap.
- * Extend when profiles table exposes onboarding_completed.
- */
+export {
+  resolveAuthenticatedScreen,
+  requiresAuth,
+  isProtectedScreen,
+  isAuthEntryScreen,
+} from '@/features/user';
+
 export function resolveInitialScreenForSession(options: {
   hasSession: boolean;
-  onboardingCompleted?: boolean;
+  bundle?: UserBundle | null;
 }): AppScreen {
   if (!options.hasSession) {
-    return 'welcome';
+    return AUTH_ENTRY_SCREEN;
   }
-  if (options.onboardingCompleted === false) {
-    return 'profile-setup';
+  if (options.bundle) {
+    return resolveAuthenticatedScreen(options.bundle);
   }
-  return POST_AUTH_HOME;
+  return AUTH_ENTRY_SCREEN;
 }
 
 export function isPublicScreen(screen: AppScreen): boolean {
-  return AUTH_SCREENS.includes(screen);
+  return ['login', 'signup'].includes(screen);
 }
