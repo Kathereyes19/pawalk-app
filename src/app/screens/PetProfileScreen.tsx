@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus,
-  Camera,
   Check,
   X,
   Upload,
@@ -32,7 +31,7 @@ import {
 } from '@/features/pets';
 import { isSupabaseConfigured } from '@/config/env';
 import { addVaccination, deleteVaccination } from '@/features/vaccinations';
-import { getPetAvatarProps } from '@/lib/images';
+import { getPetAvatarProps } from '@/lib/avatars';
 import type { Pet as PetType, Vaccination } from '@/types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -74,8 +73,6 @@ export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenRemind
     cardImageUrl: '' as string | null,
   });
   const [formStep, setFormStep] = useState(1);
-  const avatarInputRef = React.useRef<HTMLInputElement>(null);
-
   // Form state
   const [newPet, setNewPet] = useState<Partial<Pet>>({
     name: '',
@@ -142,17 +139,6 @@ export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenRemind
   const closePetForm = () => {
     setShowPetForm(false);
     resetPetForm();
-  };
-
-  const handlePetAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setNewPet((prev) => ({ ...prev, avatar: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
   const toggleBehavior = (behaviorId: string) => {
@@ -628,28 +614,6 @@ export const PetProfileScreen: React.FC<PetProfileScreenProps> = ({ onOpenRemind
                               {emoji}
                             </button>
                           ))}
-                          <button
-                            type="button"
-                            onClick={() => avatarInputRef.current?.click()}
-                            className={`w-16 h-16 rounded-2xl border-2 transition-all overflow-hidden flex items-center justify-center ${
-                              newPet.avatar && (newPet.avatar.startsWith('data:') || newPet.avatar.startsWith('http'))
-                                ? 'border-primary bg-primary/10'
-                                : 'border-dashed border-border hover:border-primary/50'
-                            }`}
-                          >
-                            {newPet.avatar && (newPet.avatar.startsWith('data:') || newPet.avatar.startsWith('http')) ? (
-                              <img src={newPet.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                            ) : (
-                              <Camera className="w-6 h-6 text-muted-foreground" />
-                            )}
-                          </button>
-                          <input
-                            ref={avatarInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handlePetAvatarFile}
-                          />
                         </div>
                       </div>
 

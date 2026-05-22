@@ -30,7 +30,8 @@ import {
   getPriceUnitLabel,
   getProfileBookCta,
 } from '@/lib/providers/serviceExperience';
-import { getWalkerAvatarProps } from '@/lib/images';
+import { Avatar } from '../components/Avatar';
+import { getWalkerAvatarProps } from '@/lib/avatars';
 import type { Walker } from '@/types';
 
 interface WalkerProfileScreenProps {
@@ -138,13 +139,8 @@ export const WalkerProfileScreen: React.FC<WalkerProfileScreenProps> = ({
             transition={{ type: 'spring', bounce: 0.4 }}
             className="relative inline-block"
           >
-            <div className="w-32 h-32 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-2xl relative ring-4 ring-white/30 overflow-hidden">
-              <img
-                src={walkerAvatar.src}
-                alt={walkerAvatar.alt}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
+            <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center shadow-2xl relative">
+              <Avatar {...walkerAvatar} size="2xl" className="ring-4 ring-white/30" />
               {walker.verified && (
                 <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-success rounded-full flex items-center justify-center shadow-xl border-4 border-white">
                   <BadgeCheck className="w-6 h-6 text-white" />

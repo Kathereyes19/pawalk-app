@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Check, PawPrint } from 'lucide-react';
 import { Card } from '../Card';
 import { Avatar } from '../Avatar';
-import { getPetAvatarProps } from '@/lib/images';
+import { getPetAvatarProps } from '@/lib/avatars';
 import type { Pet } from '@/types';
 
 interface PetSelectionPickerProps {

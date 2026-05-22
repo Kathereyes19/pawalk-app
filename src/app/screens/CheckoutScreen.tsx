@@ -28,7 +28,7 @@ import {
   type VetBookableServiceId,
 } from '@/lib/providers/serviceExperience';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
-import { getWalkerAvatarProps, getPetAvatarProps } from '@/lib/images';
+import { getWalkerAvatarProps, getPetAvatarProps } from '@/lib/avatars';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';

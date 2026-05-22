@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Star, Verified, X } from 'lucide-react';
 import { Avatar } from '../Avatar';
-import { getReviewAuthorAvatarProps } from '@/lib/images';
+import { getReviewAuthorAvatarProps } from '@/lib/avatars';
 import { Card } from '../Card';
 import { IconButton } from '../IconButton';
 

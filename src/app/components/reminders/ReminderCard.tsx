@@ -12,7 +12,7 @@ import { useLanguage } from '@/app/contexts/LanguageContext';
 import { Badge } from '../Badge';
 import { Card } from '../Card';
 import { Avatar } from '../Avatar';
-import { getPetAvatarProps } from '@/lib/images';
+import { getPetAvatarProps } from '@/lib/avatars';
 import {
   CATEGORY_META,
   formatReminderDateTime,

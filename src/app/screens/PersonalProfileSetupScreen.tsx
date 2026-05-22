@@ -20,7 +20,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
-import { getUserAvatarProps, getPetAvatarProps } from '@/lib/images';
+import { getUserAvatarProps, getPetAvatarProps } from '@/lib/avatars';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 
 interface PersonalProfileSetupScreenProps {

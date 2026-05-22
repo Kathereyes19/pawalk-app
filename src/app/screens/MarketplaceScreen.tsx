@@ -285,27 +285,23 @@ function MarketplaceProductView() {
 
       <div className="p-4 space-y-4">
         <Card padding="none" className="overflow-hidden shadow-lg border-0">
-          <div className="relative h-72">
-            <ProductImage
-              product={selectedProduct}
-              size="detail"
-              srcOverride={gallery[galleryIndex]}
-              className="h-full w-full"
-              alt={selectedProduct.name}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-          </div>
-          <div className="flex gap-2 p-3 overflow-x-auto bg-card">
-            {gallery.map((imageUrl, index) => (
+          <ProductImage
+            product={selectedProduct}
+            size="detail"
+            emojiOverride={gallery[galleryIndex]}
+            className="h-56 w-full"
+          />
+          <div className="flex gap-2 p-3 overflow-x-auto bg-card border-t border-border">
+            {gallery.map((emoji, index) => (
               <button
-                key={imageUrl}
+                key={`${selectedProduct.id}-gallery-${index}`}
                 type="button"
                 onClick={() => setGalleryIndex(index)}
-                className={`w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl border-2 shrink-0 transition-all bg-muted/40 ${
                   galleryIndex === index ? 'border-primary ring-2 ring-primary/20' : 'border-border'
                 }`}
               >
-                <img src={imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                {emoji}
               </button>
             ))}
           </div>

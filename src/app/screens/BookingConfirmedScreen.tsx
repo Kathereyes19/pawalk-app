@@ -3,7 +3,7 @@ import { Calendar, Clock, MapPin, Sparkles, CalendarDays, PawPrint } from 'lucid
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatReservationDate, formatReservationTime, formatCurrency } from '@/features/reservations';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
-import { getWalkerAvatarProps } from '@/lib/images';
+import { getWalkerAvatarProps } from '@/lib/avatars';
 import {
   formatCareDurationLabel,
   getCategoryBadgeLabel,

@@ -18,7 +18,7 @@ import { Input } from '../components/Input';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
-import { getPetAvatarProps } from '@/lib/images';
+import { getPetAvatarProps } from '@/lib/avatars';
 import { IconButton } from '../components/IconButton';
 import iconOnlyLogo from '../../imports/Icon-only_version.png';
 import { createPetId } from '@/lib/petId';

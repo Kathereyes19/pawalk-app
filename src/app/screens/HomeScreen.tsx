@@ -27,7 +27,7 @@ import { CategoryFilterSheet } from '../components/walker/CategoryFilterSheet';
 import { MOCK_WALKERS, nudgeWalkerPosition } from '@/lib/walkers/mockWalkers';
 import { useHomeDiscovery } from '@/lib/walkers/useHomeDiscovery';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
-import { getWalkerAvatarProps } from '@/lib/images';
+import { getWalkerAvatarProps } from '@/lib/avatars';
 import {
   HOME_CATEGORIES,
   QUICK_FILTERS_BY_CATEGORY,

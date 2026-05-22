@@ -19,7 +19,7 @@ import { Avatar } from '../Avatar';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Card } from '../Card';
-import { getReservationProviderAvatarProps } from '@/lib/images';
+import { getReservationProviderAvatarProps } from '@/lib/avatars';
 import {
   formatCurrency,
   formatDuration,

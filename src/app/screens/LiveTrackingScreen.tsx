@@ -9,7 +9,7 @@ import { IconButton } from '../components/IconButton';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
 import type { Reservation, Walker } from '@/types';
-import { getWalkerAvatarProps } from '@/lib/images';
+import { getWalkerAvatarProps } from '@/lib/avatars';
 import { TrackingMapCanvas } from '../components/map/TrackingMapCanvas';
 
 interface LiveTrackingScreenProps {
@@ -288,9 +288,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
       >
         <TrackingMapCanvas
           progressPercent={displayProgress}
-          walkerImageSrc={walkerAvatar.src!}
-          walkerImageAlt={walkerAvatar.alt}
-          walkerAvatar={walker.avatar}
+          walkerEmoji={walkerAvatar.emoji ?? '🚶'}
         />
 
         {/* Top overlay: status + back (above map, never covered by route) */}

@@ -36,7 +36,7 @@ import { ProfileInfoRow } from '../components/profile/ProfileInfoRow';
 import { ProfileSectionCard } from '../components/profile/ProfileSectionCard';
 import { PaymentMethodsSection } from '../components/payments/PaymentMethodsSection';
 import { RemindersSection } from '../components/reminders/RemindersSection';
-import { getUserAvatarProps, getPetAvatarProps } from '@/lib/images';
+import { getUserAvatarProps, getPetAvatarProps } from '@/lib/avatars';
 import type { UserProfile } from '@/types';
 
 interface ProfileScreenProps {
@@ -123,10 +123,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   }, [accessibility]);
 
   const userAvatarProps = useMemo(() => {
-    if (!displayProfile) return { src: undefined, emoji: '👤', alt: 'User' };
+    if (!displayProfile) return { emoji: '👤', alt: 'User', variant: 'user' as const };
     return getUserAvatarProps(
       {
-        avatarUrl: displayProfile.avatarUrl,
         avatar: displayProfile.avatar,
         fullName: displayProfile.fullName,
       },
@@ -135,16 +134,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   }, [displayProfile, userId]);
 
   const draftAvatarProps = useMemo(() => {
-    if (!draft) return { src: undefined, emoji: '👤', alt: 'User' };
-    const hasUpload =
-      draft.avatarUrl ??
-      (draft.avatar.startsWith('data:') ? draft.avatar : undefined);
-    if (hasUpload) {
-      return getUserAvatarProps(
-        { avatarUrl: hasUpload, fullName: draft.fullName },
-        userId ?? undefined
-      );
-    }
+    if (!draft) return { emoji: '👤', alt: 'User', variant: 'user' as const };
     return getUserAvatarProps(
       { avatar: draft.avatar, fullName: draft.fullName },
       userId ?? undefined

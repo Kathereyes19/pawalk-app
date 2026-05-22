@@ -37,7 +37,7 @@ import {
   getWalkerWalkStats,
 } from '@/lib/providers/serviceExperience';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
-import { getProviderGalleryUrls, getReviewAuthorAvatarProps } from '@/lib/images';
+import { getProviderGalleryEmojis, getReviewAuthorAvatarProps } from '@/lib/avatars';
 import type { CaregiverServiceOffer, Walker } from '@/types';
 
 const CARE_LABELS: Record<CaregiverServiceOffer, string> = {
@@ -245,18 +245,13 @@ export const ProviderProfileSections: React.FC<ProviderProfileSectionsProps> = (
       <div className="px-4 mb-6">
         <h2 className="text-lg font-bold mb-3">Galería</h2>
         <div className="grid grid-cols-3 gap-2">
-          {getProviderGalleryUrls(walker.id, meta.gallery.length, category).map((src, index) => (
+          {getProviderGalleryEmojis(walker.id, meta.gallery.length, category).map((emoji, index) => (
             <Card
               key={`${walker.id}-gallery-${index}`}
               padding="none"
-              className="aspect-square overflow-hidden bg-muted"
+              className="aspect-square flex items-center justify-center text-4xl bg-gradient-to-br from-primary/5 to-accent/10"
             >
-              <img
-                src={src}
-                alt={`${walker.name} gallery ${index + 1}`}
-                loading="lazy"
-                className="w-full h-full object-cover"
-              />
+              {emoji}
             </Card>
           ))}
         </div>

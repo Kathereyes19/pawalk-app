@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo } from 'react';
 import { MapBaseLayer } from './MapBaseLayer';
 import {
   buildPartialRoutePathD,
@@ -10,22 +10,15 @@ import {
 
 interface TrackingMapCanvasProps {
   progressPercent: number;
-  /** Resolved profile image URL for the walker marker */
-  walkerImageSrc: string;
-  walkerImageAlt?: string;
-  /** @deprecated Use walkerImageSrc — kept for legacy callers */
-  walkerAvatar?: string;
+  walkerEmoji: string;
   routePoints?: MapPercentPoint[];
 }
 
 function TrackingMapCanvasComponent({
   progressPercent,
-  walkerImageSrc,
-  walkerImageAlt = 'Walker',
-  walkerAvatar,
+  walkerEmoji,
   routePoints = DEFAULT_WALK_ROUTE,
 }: TrackingMapCanvasProps) {
-  const [imageFailed, setImageFailed] = useState(false);
   const clampedProgress = Math.min(100, Math.max(0, progressPercent));
   const fullRoutePath = useMemo(() => buildRoutePathD(routePoints), [routePoints]);
   const traveledPath = useMemo(
@@ -124,17 +117,10 @@ function TrackingMapCanvasComponent({
           }}
         >
           <div className="relative">
-            <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] border-white bg-primary">
-              {!imageFailed ? (
-                <img
-                  src={walkerImageSrc}
-                  alt={walkerImageAlt}
-                  className="w-full h-full object-cover"
-                  onError={() => setImageFailed(true)}
-                />
-              ) : (
-                <span className="text-2xl leading-none">{walkerAvatar ?? '🐕'}</span>
-              )}
+            <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-[3px] border-white bg-gradient-to-br from-primary to-accent">
+              <span className="text-2xl leading-none" aria-hidden>
+                {walkerEmoji}
+              </span>
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-success border-2 border-white home-map-pin-live" />
           </div>

@@ -40,16 +40,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         className="text-left w-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl"
       >
         <div className="rounded-2xl overflow-hidden border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
-          <div className="relative h-28">
-            <ProductImage product={product} size="card" className="h-full w-full" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-            <p className="absolute bottom-2 left-2 right-2 text-white text-xs font-semibold line-clamp-2 drop-shadow">
-              {product.name}
-            </p>
-          </div>
-          <div className="p-2.5 flex items-center justify-between gap-2">
-            <p className="font-bold text-primary text-sm">${product.price.toLocaleString()}</p>
-            <StarRating rating={product.rating} showCount={false} />
+          <ProductImage product={product} size="card" className="h-28 w-full" />
+          <div className="p-2.5 space-y-1">
+            <p className="font-semibold text-xs line-clamp-2 leading-snug">{product.name}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-bold text-primary text-sm">${product.price.toLocaleString()}</p>
+              <StarRating rating={product.rating} showCount={false} />
+            </div>
           </div>
         </div>
       </motion.button>
@@ -68,24 +65,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         onClick={onClick}
         className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
-        <div className={`relative ${featured ? 'h-44' : 'h-40'} overflow-hidden`}>
+        <div className={`relative overflow-hidden ${featured ? 'h-36' : 'h-32'}`}>
           <ProductImage product={product} size="card" className="h-full w-full" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
           {!product.inStock && (
             <Badge className="absolute top-2.5 right-2.5 bg-black/60 text-white border-0 text-[10px]">
               {t('marketplace.outOfStock')}
             </Badge>
           )}
-          <div className="absolute bottom-0 left-0 right-0 p-3">
-            <StarRating
-              rating={product.rating}
-              reviewCount={product.reviewCount}
-              className="mb-1 [&_span]:text-white/90 [&_.text-muted-foreground]:text-white/70"
-            />
-          </div>
         </div>
 
         <div className="p-3 space-y-2">
+          <StarRating rating={product.rating} reviewCount={product.reviewCount} />
           <p className="font-semibold text-sm line-clamp-2 min-h-[2.5rem] leading-snug">{product.name}</p>
           {!featured && (
             <p className="text-xs text-muted-foreground line-clamp-1">{product.shortDescription}</p>

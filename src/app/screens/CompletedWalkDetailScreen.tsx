@@ -35,7 +35,7 @@ import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/Card';
 import { TrackingMapCanvas } from '../components/map/TrackingMapCanvas';
-import { getReservationProviderAvatarProps, getPetAvatarProps } from '@/lib/images';
+import { getReservationProviderAvatarProps, getPetAvatarProps } from '@/lib/avatars';
 import type { Reservation } from '@/types';
 
 interface CompletedWalkDetailScreenProps {
@@ -125,17 +125,13 @@ export const CompletedWalkDetailScreen: React.FC<CompletedWalkDetailScreenProps>
         {isWalk ? (
           <TrackingMapCanvas
             progressPercent={100}
-            walkerImageSrc={providerAvatar.src!}
-            walkerImageAlt={providerAvatar.alt}
-            walkerAvatar={reservation.walkerAvatar}
+            walkerEmoji={providerAvatar.emoji ?? '🚶'}
           />
         ) : (
-          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-            <img
-              src={providerAvatar.src}
-              alt={providerAvatar.alt}
-              className="absolute top-8 left-8 w-24 h-24 rounded-2xl object-cover"
-            />
+          <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center justify-center">
+            <span className="text-8xl" aria-hidden>
+              {providerAvatar.emoji ?? '🏥'}
+            </span>
           </div>
         )}
         <div className={`absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/50 to-transparent px-4 pt-4 pb-8 ${isWalk ? '' : 'relative bg-transparent'}`}>
