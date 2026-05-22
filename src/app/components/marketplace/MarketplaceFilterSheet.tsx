@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '../Button';
+import { ChipButton } from '../ChipButton';
 import { Input } from '../Input';
 import { IconButton } from '../IconButton';
 import type { MarketplaceCategory, MarketplaceFilters } from '@/types';
@@ -57,7 +58,7 @@ export const MarketplaceFilterSheet: React.FC<MarketplaceFilterSheetProps> = ({
                 <SlidersHorizontal className="w-5 h-5 text-primary" />
                 <h2 className="text-lg font-bold">Filtros</h2>
               </div>
-              <IconButton variant="ghost" onClick={onClose}>
+              <IconButton variant="ghost" onClick={onClose} aria-label="Cerrar filtros">
                 <X className="w-5 h-5" />
               </IconButton>
             </div>
@@ -67,19 +68,15 @@ export const MarketplaceFilterSheet: React.FC<MarketplaceFilterSheetProps> = ({
                 <p className="text-sm font-medium mb-2">Categoría</p>
                 <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((category) => (
-                    <button
+                    <ChipButton
                       key={category.id}
-                      type="button"
+                      active={filters.category === category.id}
                       onClick={() => onChange({ category: category.id })}
-                      className={`rounded-2xl border px-3 py-2.5 text-left text-sm transition-all ${
-                        filters.category === category.id
-                          ? 'border-primary bg-primary/10 font-semibold'
-                          : 'border-border hover:bg-muted/50'
-                      }`}
+                      className="w-full justify-start px-4"
                     >
-                      <span className="mr-1">{category.emoji}</span>
+                      <span aria-hidden>{category.emoji}</span>
                       {category.label}
-                    </button>
+                    </ChipButton>
                   ))}
                 </div>
               </div>
@@ -109,38 +106,36 @@ export const MarketplaceFilterSheet: React.FC<MarketplaceFilterSheetProps> = ({
                 <p className="text-sm font-medium mb-2">Calificación mínima</p>
                 <div className="flex flex-wrap gap-2">
                   {RATING_OPTIONS.map((rating) => (
-                    <button
+                    <ChipButton
                       key={rating}
-                      type="button"
+                      size="sm"
+                      active={filters.minRating === rating}
                       onClick={() => onChange({ minRating: rating })}
-                      className={`px-3 py-2 rounded-full text-sm border ${
-                        filters.minRating === rating
-                          ? 'border-primary bg-primary/10 font-semibold'
-                          : 'border-border'
-                      }`}
                     >
                       {rating === 0 ? 'Todas' : `${rating}+ ★`}
-                    </button>
+                    </ChipButton>
                   ))}
                 </div>
               </div>
 
-              <label className="flex items-center gap-3 p-3 rounded-2xl border border-border cursor-pointer">
+              <label className="flex items-center gap-3 p-3 rounded-full border-2 border-border cursor-pointer hover:border-primary/30 transition-colors">
                 <input
                   type="checkbox"
                   checked={filters.inStockOnly}
                   onChange={(event) => onChange({ inStockOnly: event.target.checked })}
                   className="w-4 h-4 accent-primary"
                 />
-                <span className="text-sm">Solo productos disponibles</span>
+                <span className="text-sm font-medium">Solo productos disponibles</span>
               </label>
             </div>
 
             <div className="p-5 pb-safe border-t border-border grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={onReset}>
+              <Button variant="outline" size="lg" fullWidth onClick={onReset}>
                 Limpiar
               </Button>
-              <Button onClick={onClose}>Aplicar</Button>
+              <Button size="lg" fullWidth onClick={onClose}>
+                Aplicar
+              </Button>
             </div>
           </motion.div>
         </motion.div>

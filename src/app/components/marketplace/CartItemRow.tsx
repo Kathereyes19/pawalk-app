@@ -27,20 +27,21 @@ export const CartItemRow: React.FC<CartItemRowProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p className="font-semibold text-sm line-clamp-2">{item.name}</p>
-            <button
-              type="button"
+            <IconButton
+              size="sm"
+              variant="ghost"
               onClick={onRemove}
-              className="p-2 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive min-w-10 min-h-10"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               aria-label="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
-            </button>
+            </IconButton>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             ${item.price.toLocaleString()} c/u
           </p>
           <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1">
+            <div className="flex items-center gap-1 bg-muted/60 rounded-full p-1">
               <IconButton size="sm" variant="ghost" onClick={onDecrease} aria-label="Disminuir">
                 <Minus className="w-4 h-4" />
               </IconButton>

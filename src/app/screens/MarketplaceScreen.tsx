@@ -43,6 +43,7 @@ import { OrderCard } from '../components/marketplace/OrderCard';
 import { OrderTrackingStepper } from '../components/marketplace/OrderTrackingStepper';
 import { RecommendedProductsSection } from '../components/marketplace/RecommendedProductsSection';
 import { Button } from '../components/Button';
+import { headerIconButtonClassName } from '../components/ChipButton';
 import { Input } from '../components/Input';
 import { IconButton } from '../components/IconButton';
 import { Badge } from '../components/Badge';
@@ -90,7 +91,7 @@ const MarketplaceHeader: React.FC<{
         <IconButton
           onClick={onBack}
           variant="ghost"
-          className="bg-white/20 text-white hover:bg-white/30 border-0 min-w-11 min-h-11"
+          className={headerIconButtonClassName}
           aria-label="Volver"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -100,29 +101,31 @@ const MarketplaceHeader: React.FC<{
       )}
       <div className="flex items-center gap-2">
         {onOrders && (
-          <button
-            type="button"
+          <IconButton
             onClick={onOrders}
-            className="p-2.5 rounded-full bg-white/20 text-white min-w-11 min-h-11 flex items-center justify-center"
+            variant="ghost"
+            className={headerIconButtonClassName}
             aria-label="Mis pedidos"
           >
             <Package className="w-5 h-5" />
-          </button>
+          </IconButton>
         )}
         {onCart && (
-          <button
-            type="button"
-            onClick={onCart}
-            className="relative p-2.5 rounded-full bg-white/20 text-white min-w-11 min-h-11 flex items-center justify-center"
-            aria-label="Carrito"
-          >
-            <ShoppingCart className="w-5 h-5" />
+          <div className="relative">
+            <IconButton
+              onClick={onCart}
+              variant="ghost"
+              className={headerIconButtonClassName}
+              aria-label="Carrito"
+            >
+              <ShoppingCart className="w-5 h-5" />
+            </IconButton>
             {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center pointer-events-none">
                 {cartCount > 9 ? '9+' : cartCount}
               </span>
             )}
-          </button>
+          </div>
         )}
       </div>
     </div>
@@ -170,14 +173,15 @@ function MarketplaceHomeView() {
               className="w-full pl-9 pr-4 py-3.5 rounded-2xl border border-border bg-card text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
-          <button
-            type="button"
+          <IconButton
             onClick={() => setFiltersOpen(true)}
-            className="shrink-0 w-12 h-12 rounded-2xl border border-border bg-card flex items-center justify-center text-primary shadow-sm active:scale-95 transition-transform"
+            variant="outline"
+            size="lg"
+            className="shrink-0 shadow-sm"
             aria-label="Filtros"
           >
-            <SlidersHorizontal className="w-5 h-5" />
-          </button>
+            <SlidersHorizontal className="w-5 h-5 text-primary" />
+          </IconButton>
         </div>
 
         <MarketplaceTrustBar />
@@ -215,7 +219,7 @@ function MarketplaceHomeView() {
                 <ShoppingBag className="w-10 h-10 text-primary mx-auto mb-3" />
                 <p className="font-semibold">{t('marketplace.empty.title')}</p>
                 <p className="text-sm text-muted-foreground mt-1">{t('marketplace.empty.desc')}</p>
-                <Button size="sm" className="mt-4" variant="outline" onClick={resetFilters}>
+                <Button size="md" className="mt-4" variant="outline" onClick={resetFilters}>
                   {t('marketplace.filters.reset')}
                 </Button>
               </Card>
@@ -333,7 +337,7 @@ function MarketplaceProductView() {
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">{t('marketplace.quantity')}</span>
-          <div className="flex items-center gap-2 bg-muted/60 rounded-xl p-1">
+          <div className="flex items-center gap-2 bg-muted/60 rounded-full p-1">
             <IconButton size="sm" variant="ghost" onClick={() => setQuantity((v) => Math.max(1, v - 1))}>
               -
             </IconButton>
@@ -537,7 +541,7 @@ function MarketplaceOrdersView() {
 
       <div className="p-4 space-y-3">
         <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={() => void refreshOrders()}>
+          <Button size="md" variant="outline" onClick={() => void refreshOrders()}>
             <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
             {t('marketplace.orders.refresh')}
           </Button>

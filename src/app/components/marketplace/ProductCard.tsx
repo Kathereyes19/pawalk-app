@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ShoppingCart, Plus } from 'lucide-react';
+import { Plus, ShoppingCart } from 'lucide-react';
 import { useLanguage } from '@/app/contexts/LanguageContext';
 import { ProductImage } from './ProductImage';
 import { StarRating } from './StarRating';
@@ -37,7 +37,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         type="button"
         whileTap={{ scale: 0.98 }}
         onClick={onClick}
-        className="text-left w-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl"
+        className="text-left w-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl"
       >
         <div className="rounded-2xl overflow-hidden border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
           <div className="relative h-28">
@@ -58,12 +58,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <motion.div
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.99 }}
       className={`text-left w-full touch-manipulation rounded-2xl overflow-hidden border bg-card shadow-sm hover:shadow-lg transition-all duration-300 ${
         featured ? 'border-primary/30 ring-1 ring-primary/10' : 'border-border hover:border-primary/20'
       }`}
     >
-      <button type="button" onClick={onClick} className="w-full text-left">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
         <div className={`relative ${featured ? 'h-44' : 'h-40'} overflow-hidden`}>
           <ProductImage product={product} size="card" className="h-full w-full" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -90,26 +94,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </button>
 
-      <div className="px-3 pb-3">
-        <Button
-          fullWidth
-          size="sm"
-          disabled={!product.inStock}
-          onClick={handleAddToCart}
-          className="rounded-xl shadow-sm"
-        >
-          {onAddToCart ? (
-            <>
-              <Plus className="w-4 h-4" />
-              {t('marketplace.addToCart')}
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="w-4 h-4" />
-              {t('marketplace.viewProduct')}
-            </>
-          )}
-        </Button>
+      <div className="px-3 pb-3 flex flex-col gap-2">
+        {onAddToCart ? (
+          <Button
+            fullWidth
+            size={featured ? 'lg' : 'md'}
+            disabled={!product.inStock}
+            onClick={handleAddToCart}
+          >
+            <Plus className="w-4 h-4" />
+            {t('marketplace.addToCart')}
+          </Button>
+        ) : (
+          <Button fullWidth size="md" variant="outline" onClick={onClick}>
+            <ShoppingCart className="w-4 h-4" />
+            {t('marketplace.viewProduct')}
+          </Button>
+        )}
       </div>
     </motion.div>
   );
