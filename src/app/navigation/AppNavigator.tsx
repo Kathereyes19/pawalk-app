@@ -162,7 +162,12 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return <PetProfileScreen />;
 
       case 'profile':
-        return <ProfileScreen onLogout={handlers.handleLogout} />;
+        return (
+          <ProfileScreen
+            onLogout={handlers.handleLogout}
+            onNavigateToPets={() => handlers.handleTabChange('pets')}
+          />
+        );
     }
   };
 

@@ -282,4 +282,17 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari, Opera */
   }
+
+  html.pawalk-large-text {
+    font-size: 112.5%;
+  }
+
+  html.pawalk-reduce-motion *,
+  html.pawalk-reduce-motion *::before,
+  html.pawalk-reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
