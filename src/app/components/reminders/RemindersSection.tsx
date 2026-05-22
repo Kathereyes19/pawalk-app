@@ -23,7 +23,8 @@ export const RemindersSection: React.FC<RemindersSectionProps> = ({ onOpenRemind
       <button
         type="button"
         onClick={onOpenReminders}
-        className="w-full text-left"
+        aria-label={t('reminders.manage')}
+        className="w-full text-left touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-2xl"
       >
         <motion.div
           whileTap={{ scale: 0.98 }}

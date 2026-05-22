@@ -98,30 +98,30 @@ export const ReminderCard: React.FC<ReminderCardProps> = ({
               <button
                 type="button"
                 onClick={onComplete}
-                className="p-2 rounded-xl hover:bg-success/10 text-muted-foreground hover:text-success transition-colors"
+                className="min-w-11 min-h-11 p-2.5 rounded-xl hover:bg-success/10 text-muted-foreground hover:text-success transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success"
                 aria-label={t('reminders.markComplete')}
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
               </button>
             )}
             {onEdit && (
               <button
                 type="button"
                 onClick={onEdit}
-                className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={t('edit')}
+                className="min-w-11 min-h-11 p-2.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t('reminders.edit')}
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical className="w-5 h-5" aria-hidden="true" />
               </button>
             )}
             {onDelete && (
               <button
                 type="button"
                 onClick={onDelete}
-                className="p-2 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors text-xs font-semibold"
-                aria-label={t('delete')}
+                className="min-w-11 min-h-11 p-2.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive text-sm font-semibold"
+                aria-label={t('reminders.delete.title')}
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             )}
           </div>
