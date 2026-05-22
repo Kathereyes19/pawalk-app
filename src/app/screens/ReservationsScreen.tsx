@@ -18,6 +18,7 @@ import type { Reservation, ReservationTab } from '@/types';
 
 interface ReservationsScreenProps {
   onViewTracking: (reservation: Reservation) => void;
+  onViewWalkDetail: (reservation: Reservation) => void;
 }
 
 const tabs: { id: ReservationTab; icon: React.ElementType }[] = [
@@ -26,7 +27,10 @@ const tabs: { id: ReservationTab; icon: React.ElementType }[] = [
   { id: 'history', icon: History },
 ];
 
-export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({ onViewTracking }) => {
+export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
+  onViewTracking,
+  onViewWalkDetail,
+}) => {
   const { t, language } = useLanguage();
   const { reservations, isLoading, error, refreshReservations } = useReservations();
   const [activeTab, setActiveTab] = useState<ReservationTab>('upcoming');
@@ -212,6 +216,12 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({ onViewTr
                   : undefined
               }
               trackLabel={activeTab === 'active' ? t('reservations.track') : undefined}
+              onViewDetail={
+                activeTab === 'history' &&
+                resolveEffectiveStatus(reservation) === 'completed'
+                  ? onViewWalkDetail
+                  : undefined
+              }
             />
           ))}
 

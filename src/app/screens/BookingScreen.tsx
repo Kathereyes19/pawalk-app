@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Check, Info, AlertCircle, Sparkles, Shield, ChevronDown, ChevronUp, DollarSign, Zap, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { buildUpcomingBookingDates } from '@/lib/bookingDates';
+import { calculateBookingTotals } from '@/features/reservations';
 import {
   canBookImmediately,
   filterDatesForWalker,
@@ -17,16 +18,19 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { IconButton } from '../components/IconButton';
 import { TermsAcceptanceCheckbox } from '../components/booking/TermsAcceptanceCheckbox';
-import type { Walker } from '@/types';
+import { PetSelectionPicker } from '../components/booking/PetSelectionPicker';
+import type { Walker, Pet, BookingData } from '@/types';
 
 interface BookingScreenProps {
   walker: Walker;
+  pets: Pet[];
   onBack: () => void;
-  onContinue: (bookingData: any) => void;
+  onContinue: (bookingData: BookingData) => void;
 }
 
 export const BookingScreen: React.FC<BookingScreenProps> = ({
   walker,
+  pets,
   onBack,
   onContinue,
 }) => {
@@ -34,6 +38,9 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedDuration, setSelectedDuration] = useState<30 | 60 | 90>(60);
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>(() =>
+    pets.length > 0 ? [pets[0].id] : []
+  );
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsDetail, setShowTermsDetail] = useState(false);
   const [validationError, setValidationError] = useState<string>('');
@@ -105,27 +112,40 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
     }
   }, [selectedDate, selectedTime, timeSlots]);
 
-  const durations = [
-    {
-      value: 30,
-      label: t('booking.30min'),
-      price: walker.price * 0.6,
-      description: 'Paseo corto ideal para cachorros',
-    },
-    {
-      value: 60,
-      label: t('booking.60min'),
-      price: walker.price,
-      description: 'Paseo estándar recomendado',
-      recommended: true,
-    },
-    {
-      value: 90,
-      label: t('booking.90min'),
-      price: walker.price * 1.4,
-      description: 'Paseo extenso con tiempo de juego',
-    },
-  ];
+  useEffect(() => {
+    if (pets.length === 0) {
+      setSelectedPetIds([]);
+      return;
+    }
+    setSelectedPetIds((current) => {
+      const valid = current.filter((id) => pets.some((pet) => pet.id === id));
+      if (valid.length > 0) return valid;
+      return [pets[0].id];
+    });
+  }, [pets]);
+
+  const selectedPetCount = Math.max(1, selectedPetIds.length || (pets.length > 0 ? 1 : 0));
+
+  const durations = useMemo(
+    () =>
+      ([30, 60, 90] as const).map((value) => {
+        const totals = calculateBookingTotals(walker.price, value, selectedPetCount);
+        const descriptions: Record<30 | 60 | 90, string> = {
+          30: 'Paseo corto ideal para cachorros',
+          60: 'Paseo estándar recomendado',
+          90: 'Paseo extenso con tiempo de juego',
+        };
+        return {
+          value,
+          label: value === 30 ? t('booking.30min') : value === 60 ? t('booking.60min') : t('booking.90min'),
+          price: totals.totalPrice,
+          servicePrice: totals.servicePrice,
+          description: descriptions[value],
+          recommended: value === 60,
+        };
+      }),
+    [walker.price, selectedPetCount, t]
+  );
 
   const handleContinue = () => {
     if (!selectedDate) {
@@ -140,21 +160,35 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
       setValidationError('Debes aceptar los términos y condiciones');
       return;
     }
+    if (selectedPetIds.length === 0) {
+      setValidationError('Selecciona al menos una mascota');
+      return;
+    }
     if (isBeforeWalkerAvailability(selectedDate, selectedTime, walker)) {
       setValidationError(getWalkerAvailabilityValidationMessage(walker));
       return;
     }
 
     setValidationError('');
+    const selectedPets = pets
+      .filter((pet) => selectedPetIds.includes(pet.id))
+      .map((pet) => ({ id: pet.id, name: pet.name, avatar: pet.avatar }));
+    const totals = calculateBookingTotals(walker.price, selectedDuration, selectedPets.length);
+
     onContinue({
       date: selectedDate,
       time: selectedTime,
       duration: selectedDuration,
+      pets: selectedPets,
+      petIds: selectedPetIds,
+      serviceFee: totals.servicePrice,
+      platformFee: totals.platformFee,
+      total: totals.totalPrice,
     });
   };
 
   const selectedDurationData = durations.find((d) => d.value === selectedDuration);
-  const calculatedPrice = selectedDurationData?.price || walker.price;
+  const calculatedPrice = selectedDurationData?.price ?? calculateBookingTotals(walker.price, selectedDuration, selectedPetCount).totalPrice;
 
   return (
     <div className="h-full overflow-y-auto pb-32 bg-background-secondary">
@@ -229,6 +263,29 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
             </div>
           </Card>
         )}
+
+        {/* Pet Selection */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <PawPrint className="w-5 h-5 text-primary" />
+              Mascotas
+            </h2>
+            {selectedPetIds.length > 0 && (
+              <span className="text-sm font-medium text-primary">
+                {selectedPetIds.length} seleccionada{selectedPetIds.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <PetSelectionPicker
+            pets={pets}
+            selectedIds={selectedPetIds}
+            onChange={(ids) => {
+              setSelectedPetIds(ids);
+              setValidationError('');
+            }}
+          />
+        </div>
 
         {/* Date Selection */}
         <div>
@@ -425,7 +482,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                           {duration.value !== 60 && (
                             <p className="text-xs text-muted-foreground">
                               {duration.value > 60 ? '+' : ''}
-                              {Math.round(((duration.price - walker.price) / walker.price) * 100)}%
+                              {Math.round(((duration.servicePrice / calculateBookingTotals(walker.price, 60, selectedPetCount).servicePrice) - 1) * 100)}%
                             </p>
                           )}
                         </div>
@@ -572,7 +629,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
                 exit={{ opacity: 0, height: 0 }}
                 className="mb-3 p-3 bg-muted/50 rounded-xl"
               >
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                  <div>
+                    <p className="text-muted-foreground mb-1">Mascotas</p>
+                    <p className="font-semibold">{selectedPetIds.length || 1}</p>
+                  </div>
                   <div>
                     <p className="text-muted-foreground mb-1">Fecha</p>
                     <p className="font-semibold">
@@ -597,7 +658,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({
             fullWidth
             size="xl"
             onClick={handleContinue}
-            disabled={!selectedDate || !selectedTime || !acceptedTerms}
+            disabled={!selectedDate || !selectedTime || !acceptedTerms || selectedPetIds.length === 0}
             className="shadow-xl"
           >
             {selectedDate && selectedTime && acceptedTerms ? (

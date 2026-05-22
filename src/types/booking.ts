@@ -1,4 +1,5 @@
 import type { Walker } from './walker';
+import type { ReservationPet } from './reservation';
 
 /** Booking payload passed through checkout → confirmed → tracking */
 export interface BookingData {
@@ -6,6 +7,8 @@ export interface BookingData {
   time?: string;
   duration?: number;
   durationLabel?: string;
+  pets?: ReservationPet[];
+  petIds?: string[];
   petId?: string;
   petName?: string;
   termsAccepted?: boolean;

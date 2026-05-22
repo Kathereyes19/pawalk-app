@@ -98,11 +98,46 @@ export function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function calculateBookingTotals(walkerPrice: number, durationMinutes: number) {
+export function calculateBookingTotals(
+  walkerPrice: number,
+  durationMinutes: number,
+  petCount = 1
+) {
   const multiplier = durationMinutes === 30 ? 0.6 : durationMinutes === 90 ? 1.4 : 1;
-  const servicePrice = Math.round(walkerPrice * multiplier);
+  const count = Math.max(1, petCount);
+  const servicePrice = Math.round(walkerPrice * multiplier * count);
   const platformFee = Math.round(servicePrice * 0.15);
   const insuranceFee = Math.round(servicePrice * 0.05);
   const totalPrice = servicePrice + platformFee + insuranceFee;
-  return { servicePrice, platformFee, insuranceFee, totalPrice };
+  return { servicePrice, platformFee, insuranceFee, totalPrice, petCount: count };
+}
+
+export function getReservationPetCount(reservation: {
+  pets?: { id: string }[];
+  petName?: string;
+}): number {
+  if (reservation.pets?.length) return reservation.pets.length;
+  if (!reservation.petName) return 1;
+  return reservation.petName.split(',').filter(Boolean).length || 1;
+}
+
+export function formatReservationPetsLabel(reservation: {
+  pets?: { name: string }[];
+  petName?: string;
+}): string {
+  if (reservation.pets?.length) {
+    return reservation.pets.map((pet) => pet.name).join(', ');
+  }
+  return reservation.petName ?? 'Mascota';
+}
+
+export function computeWalkSummaryMetrics(
+  distanceKm: number,
+  durationMinutes: number,
+  petCount = 1
+) {
+  const hours = durationMinutes / 60;
+  const paceKmh = hours > 0 ? Number((distanceKm / hours).toFixed(1)) : 0;
+  const calories = Math.round(distanceKm * 45 * Math.max(1, petCount));
+  return { paceKmh, calories };
 }

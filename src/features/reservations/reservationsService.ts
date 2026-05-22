@@ -9,26 +9,68 @@ import { isScheduledInFuture } from '@/lib/bookingDates';
 import { isBeforeWalkerAvailability } from '@/lib/walkers/availability';
 import {
   calculateBookingTotals,
+  computeWalkSummaryMetrics,
+  getReservationPetCount,
   parseScheduledAt,
   resolveEffectiveStatus,
 } from './reservationUtils';
 import type {
   BookingData,
   Reservation,
+  ReservationPet,
   ReservationRow,
   ReservationStatus,
   Walker,
 } from '@/types';
 
+function normalizeReservation(reservation: Reservation): Reservation {
+  if (reservation.pets?.length) return reservation;
+  return {
+    ...reservation,
+    pets: reservation.petId
+      ? [{ id: reservation.petId, name: reservation.petName }]
+      : [{ id: 'unknown', name: reservation.petName ?? 'Mascota' }],
+  };
+}
+
+function buildPetsFromRow(row: ReservationRow): ReservationPet[] {
+  if (row.pet_ids?.length) {
+    return row.pet_ids.map((id, index) => ({
+      id,
+      name: row.pet_names?.[index] ?? row.pet_name,
+      avatar: row.pet_avatars?.[index] ?? undefined,
+    }));
+  }
+  if (row.pet_id) {
+    return [{ id: row.pet_id, name: row.pet_name }];
+  }
+  return [{ id: 'unknown', name: row.pet_name }];
+}
+
+function applyCompletionMetrics(reservation: Reservation): Reservation {
+  const distanceKm = reservation.summaryDistanceKm ?? 0;
+  const durationMinutes =
+    reservation.summaryDurationMinutes ?? reservation.durationMinutes;
+  const petCount = getReservationPetCount(reservation);
+  const metrics = computeWalkSummaryMetrics(distanceKm, durationMinutes, petCount);
+  return {
+    ...reservation,
+    summaryPaceKmh: reservation.summaryPaceKmh ?? metrics.paceKmh,
+    summaryCalories: reservation.summaryCalories ?? metrics.calories,
+  };
+}
+
 function mapRowToReservation(row: ReservationRow): Reservation {
+  const pets = buildPetsFromRow(row);
   return {
     id: row.id,
     userId: row.user_id,
     walkerId: row.walker_id,
     walkerName: row.walker_name,
     walkerAvatar: row.walker_avatar ?? '🐕',
-    petId: row.pet_id,
-    petName: row.pet_name,
+    petId: row.pet_id ?? pets[0]?.id ?? null,
+    petName: pets.map((pet) => pet.name).join(', ') || row.pet_name,
+    pets,
     scheduledDate: row.scheduled_date,
     scheduledTime: row.scheduled_time.length === 5 ? row.scheduled_time : row.scheduled_time.slice(0, 5),
     durationMinutes: row.duration_minutes,
@@ -42,20 +84,29 @@ function mapRowToReservation(row: ReservationRow): Reservation {
     completedAt: row.completed_at,
     summaryDistanceKm: row.summary_distance_km ? Number(row.summary_distance_km) : null,
     summaryDurationMinutes: row.summary_duration_minutes,
+    summaryPaceKmh: row.summary_pace_kmh ? Number(row.summary_pace_kmh) : null,
+    summaryCalories: row.summary_calories,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'created_at' | 'updated_at'> {
+  const pets = reservation.pets?.length
+    ? reservation.pets
+    : [{ id: reservation.petId ?? 'unknown', name: reservation.petName }];
+
   return {
     id: reservation.id,
     user_id: reservation.userId,
     walker_id: reservation.walkerId,
     walker_name: reservation.walkerName,
     walker_avatar: reservation.walkerAvatar,
-    pet_id: reservation.petId,
-    pet_name: reservation.petName,
+    pet_id: pets[0]?.id ?? reservation.petId,
+    pet_name: pets.map((pet) => pet.name).join(', ') || reservation.petName,
+    pet_ids: pets.map((pet) => pet.id),
+    pet_names: pets.map((pet) => pet.name),
+    pet_avatars: pets.map((pet) => pet.avatar ?? ''),
     scheduled_date: reservation.scheduledDate,
     scheduled_time: reservation.scheduledTime,
     duration_minutes: reservation.durationMinutes,
@@ -69,6 +120,8 @@ function mapReservationToRow(reservation: Reservation): Omit<ReservationRow, 'cr
     completed_at: reservation.completedAt ?? null,
     summary_distance_km: reservation.summaryDistanceKm ?? null,
     summary_duration_minutes: reservation.summaryDurationMinutes ?? null,
+    summary_pace_kmh: reservation.summaryPaceKmh ?? null,
+    summary_calories: reservation.summaryCalories ?? null,
   };
 }
 
@@ -86,6 +139,7 @@ function applyAutoStatus(reservation: Reservation, now = new Date()): Reservatio
     next.completedAt = now.toISOString();
     next.summaryDurationMinutes = next.summaryDurationMinutes ?? next.durationMinutes;
     next.summaryDistanceKm = next.summaryDistanceKm ?? Number((1.8 + Math.random() * 1.5).toFixed(1));
+    return applyCompletionMetrics(next);
   }
 
   return next;
@@ -127,7 +181,9 @@ async function syncReservationUpdates(
       original.startedAt !== item.startedAt ||
       original.completedAt !== item.completedAt ||
       original.summaryDistanceKm !== item.summaryDistanceKm ||
-      original.summaryDurationMinutes !== item.summaryDurationMinutes
+      original.summaryDurationMinutes !== item.summaryDurationMinutes ||
+      original.summaryPaceKmh !== item.summaryPaceKmh ||
+      original.summaryCalories !== item.summaryCalories
     );
   });
 
@@ -140,6 +196,8 @@ async function syncReservationUpdates(
         completed_at: reservation.completedAt,
         summary_distance_km: reservation.summaryDistanceKm,
         summary_duration_minutes: reservation.summaryDurationMinutes,
+        summary_pace_kmh: reservation.summaryPaceKmh,
+        summary_calories: reservation.summaryCalories,
         updated_at: reservation.updatedAt ?? new Date().toISOString(),
       })
       .eq('id', reservation.id)
@@ -153,7 +211,9 @@ export async function fetchReservationsByUserId(
   userId: string
 ): Promise<{ reservations: Reservation[]; error: Error | null }> {
   if (!isSupabaseConfigured()) {
-    const stored = loadStoredReservations(userId).map((item) => applyAutoStatus(item));
+    const stored = loadStoredReservations(userId)
+      .map(normalizeReservation)
+      .map((item) => applyAutoStatus(item));
     const synced = await syncReservationUpdates(userId, loadStoredReservations(userId), stored);
     return { reservations: sortReservations(synced), error: null };
   }
@@ -183,9 +243,19 @@ export async function fetchReservationsByUserId(
 export interface CreateReservationInput {
   walker: Walker;
   bookingData: BookingData;
+  pets?: ReservationPet[];
   petId?: string | null;
   petName?: string;
   paymentMethod?: string;
+}
+
+function resolveReservationPets(input: CreateReservationInput): ReservationPet[] {
+  if (input.pets?.length) return input.pets;
+  if (input.bookingData.pets?.length) return input.bookingData.pets;
+  if (input.petId && input.petName) {
+    return [{ id: input.petId, name: input.petName }];
+  }
+  return [{ id: 'unknown', name: input.petName ?? input.bookingData.petName ?? 'Mascota' }];
 }
 
 export async function createReservation(
@@ -212,7 +282,8 @@ export async function createReservation(
     };
   }
 
-  const totals = calculateBookingTotals(input.walker.price, durationMinutes);
+  const pets = resolveReservationPets(input);
+  const totals = calculateBookingTotals(input.walker.price, durationMinutes, pets.length);
   const now = new Date().toISOString();
 
   const reservation: Reservation = {
@@ -221,8 +292,9 @@ export async function createReservation(
     walkerId: input.walker.id,
     walkerName: input.walker.name,
     walkerAvatar: input.walker.avatar,
-    petId: input.petId ?? null,
-    petName: input.petName ?? input.bookingData.petName ?? 'Mascota',
+    pets,
+    petId: pets[0]?.id ?? null,
+    petName: pets.map((pet) => pet.name).join(', '),
     scheduledDate,
     scheduledTime,
     durationMinutes,
@@ -277,6 +349,7 @@ export async function updateReservationStatus(
     patch.summaryDurationMinutes = existing?.summaryDurationMinutes ?? existing?.durationMinutes;
     patch.summaryDistanceKm =
       existing?.summaryDistanceKm ?? Number((1.8 + Math.random() * 1.5).toFixed(1));
+    Object.assign(patch, applyCompletionMetrics({ ...(existing ?? {}), ...patch } as Reservation));
   }
 
   if (!isSupabaseConfigured()) {
@@ -299,6 +372,8 @@ export async function updateReservationStatus(
       completed_at: status === 'completed' ? patch.completedAt : undefined,
       summary_distance_km: status === 'completed' ? patch.summaryDistanceKm : undefined,
       summary_duration_minutes: status === 'completed' ? patch.summaryDurationMinutes : undefined,
+      summary_pace_kmh: status === 'completed' ? patch.summaryPaceKmh : undefined,
+      summary_calories: status === 'completed' ? patch.summaryCalories : undefined,
       updated_at: now,
     })
     .eq('id', reservationId)
@@ -326,6 +401,7 @@ export async function completeReservation(
       existing?.summaryDistanceKm ??
       Number((1.8 + Math.random() * 1.5).toFixed(1)),
   };
+  Object.assign(patch, applyCompletionMetrics({ ...(existing ?? {}), ...patch } as Reservation));
 
   if (!isSupabaseConfigured()) {
     const all = loadStoredReservations(userId);
@@ -346,6 +422,8 @@ export async function completeReservation(
       completed_at: now,
       summary_distance_km: patch.summaryDistanceKm,
       summary_duration_minutes: patch.summaryDurationMinutes,
+      summary_pace_kmh: patch.summaryPaceKmh,
+      summary_calories: patch.summaryCalories,
       updated_at: now,
     })
     .eq('id', reservationId)

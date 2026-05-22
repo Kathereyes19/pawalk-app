@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, CreditCard, Building2, CheckCircle2, Shield, Lock, Info, Calendar, Clock, Sparkles, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Building2, CheckCircle2, Shield, Lock, Info, Calendar, Clock, Sparkles, Check, AlertCircle, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { calculateBookingTotals } from '@/features/reservations';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconButton } from '../components/IconButton';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
+import type { Walker, BookingData } from '@/types';
 
 interface CheckoutScreenProps {
-  walker: any;
-  bookingData: any;
+  walker: Walker;
+  bookingData: BookingData;
   onBack: () => void;
   onConfirm: () => void;
 }
@@ -27,11 +29,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [processingStage, setProcessingStage] = useState(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const servicePrice = walker.price;
-  const platformFee = servicePrice * 0.15;
-  const insuranceFee = servicePrice * 0.05;
-  const subtotal = servicePrice + platformFee + insuranceFee;
-  const total = subtotal;
+  const petCount = Math.max(1, bookingData.pets?.length ?? 1);
+  const totals = useMemo(
+    () => calculateBookingTotals(walker.price, bookingData.duration ?? 60, petCount),
+    [walker.price, bookingData.duration, petCount]
+  );
+  const { servicePrice, platformFee, insuranceFee, totalPrice: total } = totals;
 
   const savedCards = [
     {
@@ -137,6 +140,31 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                 </div>
               </div>
 
+              {bookingData.pets && bookingData.pets.length > 0 && (
+                <div className="pb-4 border-b border-border">
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                    <PawPrint className="w-3.5 h-3.5" />
+                    Mascotas ({bookingData.pets.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {bookingData.pets.map((pet) => (
+                      <div
+                        key={pet.id}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/60 text-sm"
+                      >
+                        <Avatar emoji={pet.avatar ?? '🐾'} size="sm" />
+                        <span className="font-medium">{pet.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {petCount > 1 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Precio base × {petCount} mascotas
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Price Breakdown */}
               <div>
                 <button
@@ -156,7 +184,10 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                       className="space-y-2.5 text-sm mb-3"
                     >
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Servicio de paseo ({bookingData.duration} min)</span>
+                        <span className="text-muted-foreground">
+                          Servicio de paseo ({bookingData.duration} min
+                          {petCount > 1 ? ` · ${petCount} mascotas` : ''})
+                        </span>
                         <span className="font-medium">${servicePrice.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center">

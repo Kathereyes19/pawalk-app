@@ -99,6 +99,11 @@ create table if not exists public.bookings (
   completed_at timestamptz,
   summary_distance_km numeric,
   summary_duration_minutes int,
+  summary_pace_kmh numeric,
+  summary_calories int,
+  pet_ids uuid[] not null default '{}',
+  pet_names text[] not null default '{}',
+  pet_avatars text[] default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -117,7 +122,9 @@ create policy "Users can insert own bookings"
   on public.bookings for insert
   with check (auth.uid() = user_id);
 
-create policy "Users can update own bookings"
-  on public.bookings for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+-- Multi-pet columns (safe for existing databases)
+alter table public.bookings add column if not exists pet_ids uuid[] not null default '{}';
+alter table public.bookings add column if not exists pet_names text[] not null default '{}';
+alter table public.bookings add column if not exists pet_avatars text[] default '{}';
+alter table public.bookings add column if not exists summary_pace_kmh numeric;
+alter table public.bookings add column if not exists summary_calories int;

@@ -16,4 +16,7 @@ export {
   getElapsedWalkSeconds,
   getMinutesUntilStart,
   formatDuration,
+  computeWalkSummaryMetrics,
+  getReservationPetCount,
+  formatReservationPetsLabel,
 } from './reservationUtils';

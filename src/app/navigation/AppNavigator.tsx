@@ -5,6 +5,7 @@ import {
   BookingConfirmedScreen,
   BookingScreen,
   CheckoutScreen,
+  CompletedWalkDetailScreen,
   HomeScreen,
   LiveTrackingScreen,
   LoginScreen,
@@ -104,6 +105,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return (
           <BookingScreen
             walker={selectedWalker}
+            pets={navigation.userPets}
             onBack={() => handlers.goToScreen('walker-profile')}
             onContinue={handlers.handleBookingContinue}
           />
@@ -139,6 +141,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
           />
         );
 
+      case 'walk-detail':
+        return navigation.walkDetailReservation ? (
+          <CompletedWalkDetailScreen
+            reservation={navigation.walkDetailReservation}
+            onBack={handlers.handleBackFromWalkDetail}
+          />
+        ) : (
+          <HomeScreen onWalkerClick={handlers.handleWalkerClick} />
+        );
+
       default:
         return <HomeScreen onWalkerClick={handlers.handleWalkerClick} />;
     }
@@ -150,7 +162,12 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return null;
 
       case 'bookings':
-        return <ReservationsScreen onViewTracking={handlers.handleViewTracking} />;
+        return (
+          <ReservationsScreen
+            onViewTracking={handlers.handleViewTracking}
+            onViewWalkDetail={handlers.handleViewWalkDetail}
+          />
+        );
 
       case 'pets':
         return <PetProfileScreen />;

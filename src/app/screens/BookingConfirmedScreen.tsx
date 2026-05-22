@@ -1,15 +1,16 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, Calendar, Clock, MapPin, Sparkles, CalendarDays } from 'lucide-react';
+import { CheckCircle2, Calendar, Clock, MapPin, Sparkles, CalendarDays, PawPrint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { formatReservationDate, formatReservationTime } from '@/features/reservations';
+import { formatReservationDate, formatReservationTime, formatCurrency } from '@/features/reservations';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
+import type { Walker, BookingData } from '@/types';
 
 interface BookingConfirmedScreenProps {
-  walker: any;
-  bookingData: any;
+  walker: Walker;
+  bookingData: BookingData;
   onViewReservations: () => void;
   onBackHome: () => void;
 }
@@ -116,6 +117,29 @@ export const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({
                 <p className="text-sm font-medium">{t('booking.confirmed.upcoming')}</p>
               </div>
             </div>
+
+            {bookingData.pets && bookingData.pets.length > 0 && (
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                  <PawPrint className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-0.5">Mascotas</p>
+                  <p className="font-semibold">
+                    {bookingData.pets.map((pet) => pet.name).join(', ')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {bookingData.total != null && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/10">
+                <span className="text-sm font-medium">Total pagado</span>
+                <span className="font-bold text-primary text-lg">
+                  {formatCurrency(bookingData.total, language)}
+                </span>
+              </div>
+            )}
           </div>
         </Card>
       </motion.div>

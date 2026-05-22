@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, Navigation, PawPrint, Route, Timer } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, PawPrint, Route, Timer, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Avatar } from '../Avatar';
 import { Badge } from '../Badge';
@@ -10,6 +10,8 @@ import {
   formatDuration,
   formatReservationDate,
   formatReservationTime,
+  formatReservationPetsLabel,
+  getReservationPetCount,
   getMinutesUntilStart,
   getWalkProgress,
   resolveEffectiveStatus,
@@ -22,6 +24,7 @@ interface ReservationCardProps {
   statusLabel: string;
   section: ReservationTab;
   onTrack?: (reservation: Reservation) => void;
+  onViewDetail?: (reservation: Reservation) => void;
   trackLabel?: string;
   startsInLabel?: string;
 }
@@ -32,6 +35,7 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
   statusLabel,
   section,
   onTrack,
+  onViewDetail,
   trackLabel,
   startsInLabel,
 }) => {
@@ -41,6 +45,8 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
   const isUpcoming = effectiveStatus === 'scheduled';
   const progress = getWalkProgress(reservation);
   const minutesUntilStart = getMinutesUntilStart(reservation);
+  const petsLabel = formatReservationPetsLabel(reservation);
+  const petCount = getReservationPetCount(reservation);
 
   return (
     <motion.div
@@ -51,11 +57,17 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
     >
       <Card
         padding="md"
+        onClick={
+          isCompleted && section === 'history' && onViewDetail
+            ? () => onViewDetail(reservation)
+            : undefined
+        }
+        hoverable={isCompleted && section === 'history' && Boolean(onViewDetail)}
         className={
           isActive
             ? 'border-2 border-primary/30 bg-primary/5 shadow-md'
             : isCompleted
-              ? 'border border-border'
+              ? 'border border-border cursor-pointer'
               : undefined
         }
       >
@@ -67,7 +79,8 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
                 <h3 className="font-semibold truncate">{reservation.walkerName}</h3>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <PawPrint className="w-3.5 h-3.5" />
-                  {reservation.petName}
+                  {petsLabel}
+                  {petCount > 1 && ` (${petCount})`}
                 </p>
               </div>
               <Badge
@@ -143,9 +156,17 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
 
             {isCompleted && section === 'history' && (
               <div className="mt-3 p-3 rounded-xl bg-muted/50 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Resumen del paseo
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Resumen del paseo
+                  </p>
+                  {onViewDetail && (
+                    <span className="text-xs font-medium text-primary flex items-center gap-0.5">
+                      Ver detalle
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Timer className="w-4 h-4 text-primary" />

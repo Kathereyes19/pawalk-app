@@ -41,6 +41,7 @@ export function useAppNavigation() {
   const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
+  const [walkDetailReservation, setWalkDetailReservation] = useState<Reservation | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
   const hasBootstrapped = useRef(false);
@@ -225,19 +226,30 @@ export function useAppNavigation() {
     setIsNavigating(true);
 
     if (selectedWalker && bookingData && resolvedUserId) {
-      const primaryPet = userPets[0];
       await bookReservation({
         walker: selectedWalker,
         bookingData,
-        petId: primaryPet?.id ?? (bookingData.petId as string | undefined) ?? null,
-        petName: primaryPet?.name ?? (bookingData.petName as string | undefined) ?? 'Mascota',
+        pets: bookingData.pets,
+        petId: bookingData.pets?.[0]?.id ?? null,
+        petName: bookingData.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
         paymentMethod: 'card',
       });
     }
 
     setIsNavigating(false);
     setCurrentScreen('confirmed');
-  }, [selectedWalker, bookingData, resolvedUserId, userPets, bookReservation]);
+  }, [selectedWalker, bookingData, resolvedUserId, bookReservation]);
+
+  const handleViewWalkDetail = useCallback((reservation: Reservation) => {
+    setWalkDetailReservation(reservation);
+    setCurrentScreen('walk-detail');
+  }, []);
+
+  const handleBackFromWalkDetail = useCallback(() => {
+    setWalkDetailReservation(null);
+    setCurrentScreen(POST_AUTH_HOME);
+    setActiveTab('bookings');
+  }, []);
 
   const handleViewReservations = useCallback(() => {
     setActiveTab('bookings');
@@ -318,6 +330,7 @@ export function useAppNavigation() {
     selectedWalker,
     bookingData,
     activeReservation,
+    walkDetailReservation,
     profileData,
     userPets,
     isAppReady,
@@ -340,6 +353,8 @@ export function useAppNavigation() {
       handleCheckoutConfirm,
       handleViewReservations,
       handleViewTracking,
+      handleViewWalkDetail,
+      handleBackFromWalkDetail,
       handleWalkComplete,
       handleBackFromTracking,
       handleBackHome,
