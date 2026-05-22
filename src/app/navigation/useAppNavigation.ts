@@ -266,6 +266,11 @@ export function useAppNavigation() {
     [completeReservationWalk]
   );
 
+  const handleBackFromTracking = useCallback(() => {
+    setCurrentScreen(POST_AUTH_HOME);
+    setActiveTab('bookings');
+  }, []);
+
   const handleBackHome = useCallback(() => {
     setCurrentScreen(POST_AUTH_HOME);
     setActiveTab('home');
@@ -336,6 +341,7 @@ export function useAppNavigation() {
       handleViewReservations,
       handleViewTracking,
       handleWalkComplete,
+      handleBackFromTracking,
       handleBackHome,
       handleTabChange,
       goToScreen,

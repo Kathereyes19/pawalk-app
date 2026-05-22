@@ -41,7 +41,35 @@ export const DEFAULT_WALK_ROUTE = buildWalkRouteFromLatLng();
 export function buildRoutePathD(points: MapPercentPoint[]): string {
   if (points.length === 0) return '';
   const [first, ...rest] = points;
-  return `M ${first.x}% ${first.y}% ${rest.map((p) => `L ${p.x}% ${p.y}%`).join(' ')}`;
+  return `M ${first.x} ${first.y} ${rest.map((p) => `L ${p.x} ${p.y}`).join(' ')}`;
+}
+
+/** Path from start through current progress (for live traced route) */
+export function buildPartialRoutePathD(
+  points: MapPercentPoint[],
+  progressPercent: number
+): string {
+  if (points.length === 0) return '';
+  if (progressPercent <= 0) {
+    const start = points[0];
+    return `M ${start.x} ${start.y}`;
+  }
+  if (progressPercent >= 100) return buildRoutePathD(points);
+
+  const progress = progressPercent / 100;
+  const scaled = progress * (points.length - 1);
+  const index = Math.floor(scaled);
+  const segmentProgress = scaled - index;
+  const current = points[index];
+  const next = points[Math.min(index + 1, points.length - 1)];
+  const tip = {
+    x: current.x + (next.x - current.x) * segmentProgress,
+    y: current.y + (next.y - current.y) * segmentProgress,
+  };
+
+  const pathPoints = points.slice(0, index + 1);
+  pathPoints.push(tip);
+  return buildRoutePathD(pathPoints);
 }
 
 export function interpolateRoutePosition(

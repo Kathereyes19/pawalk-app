@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { MapBaseLayer } from './MapBaseLayer';
 import {
+  buildPartialRoutePathD,
   buildRoutePathD,
   DEFAULT_WALK_ROUTE,
   interpolateRoutePosition,
@@ -11,19 +12,19 @@ interface TrackingMapCanvasProps {
   progressPercent: number;
   walkerAvatar: string;
   routePoints?: MapPercentPoint[];
-  elapsedLabel?: string;
-  distanceKm?: number;
 }
 
 function TrackingMapCanvasComponent({
   progressPercent,
   walkerAvatar,
   routePoints = DEFAULT_WALK_ROUTE,
-  elapsedLabel,
-  distanceKm = 0,
 }: TrackingMapCanvasProps) {
   const clampedProgress = Math.min(100, Math.max(0, progressPercent));
-  const routePath = useMemo(() => buildRoutePathD(routePoints), [routePoints]);
+  const fullRoutePath = useMemo(() => buildRoutePathD(routePoints), [routePoints]);
+  const traveledPath = useMemo(
+    () => buildPartialRoutePathD(routePoints, clampedProgress),
+    [routePoints, clampedProgress]
+  );
   const walkerPosition = useMemo(
     () => interpolateRoutePosition(routePoints, clampedProgress),
     [routePoints, clampedProgress]
@@ -34,7 +35,12 @@ function TrackingMapCanvasComponent({
   return (
     <div className="absolute inset-0 overflow-hidden">
       <MapBaseLayer gridPatternId="tracking-map-grid">
-        <svg className="absolute inset-0 w-full h-full z-[2]" aria-hidden>
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="xMidYMid slice"
+          className="absolute inset-0 z-[2] h-full w-full"
+          aria-hidden
+        >
           <defs>
             <linearGradient id="tracking-route-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#FF6B35" />
@@ -43,27 +49,30 @@ function TrackingMapCanvasComponent({
             </linearGradient>
           </defs>
 
+          {/* Remaining route (not yet walked) */}
           <path
-            d={routePath}
-            stroke="#cbd5e1"
-            strokeWidth="5"
+            d={fullRoutePath}
+            stroke="#94a3b8"
+            strokeWidth="1.1"
             strokeLinecap="round"
             strokeLinejoin="round"
+            strokeDasharray="1.8 2.2"
             fill="none"
-            opacity="0.45"
+            opacity="0.55"
           />
 
-          <path
-            d={routePath}
-            stroke="url(#tracking-route-gradient)"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-            pathLength={100}
-            strokeDasharray={`${clampedProgress} ${100 - clampedProgress}`}
-            className="tracking-route-live"
-          />
+          {/* Completed / traveled route */}
+          {traveledPath.length > 0 && (
+            <path
+              d={traveledPath}
+              stroke="url(#tracking-route-gradient)"
+              strokeWidth="1.35"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              className="tracking-route-traveled transition-all duration-700 ease-out"
+            />
+          )}
 
           {routePoints.slice(1, -1).map((point, index) => {
             const checkpointProgress = ((index + 1) / (routePoints.length - 1)) * 100;
@@ -71,20 +80,20 @@ function TrackingMapCanvasComponent({
             return (
               <circle
                 key={`${point.x}-${point.y}-${index}`}
-                cx={`${point.x}%`}
-                cy={`${point.y}%`}
-                r="3"
+                cx={point.x}
+                cy={point.y}
+                r={reached ? 0.85 : 0.65}
                 fill={reached ? '#10B981' : '#94a3b8'}
-                opacity={reached ? 1 : 0.55}
+                opacity={reached ? 1 : 0.5}
               />
             );
           })}
 
           {start && (
             <g>
-              <circle cx={`${start.x}%`} cy={`${start.y}%`} r="14" fill="#FF6B35" opacity="0.18" />
-              <circle cx={`${start.x}%`} cy={`${start.y}%`} r="10" fill="#FF6B35" />
-              <text x={`${start.x}%`} y={`${start.y}%`} textAnchor="middle" dy=".35em" fontSize="12">
+              <circle cx={start.x} cy={start.y} r="3.2" fill="#FF6B35" opacity="0.22" />
+              <circle cx={start.x} cy={start.y} r="2.2" fill="#FF6B35" />
+              <text x={start.x} y={start.y} textAnchor="middle" dominantBaseline="central" fontSize="2.8">
                 🏠
               </text>
             </g>
@@ -92,9 +101,9 @@ function TrackingMapCanvasComponent({
 
           {end && (
             <g>
-              <circle cx={`${end.x}%`} cy={`${end.y}%`} r="14" fill="#10B981" opacity="0.18" />
-              <circle cx={`${end.x}%`} cy={`${end.y}%`} r="10" fill="#10B981" />
-              <text x={`${end.x}%`} y={`${end.y}%`} textAnchor="middle" dy=".35em" fontSize="12">
+              <circle cx={end.x} cy={end.y} r="3.2" fill="#10B981" opacity="0.22" />
+              <circle cx={end.x} cy={end.y} r="2.2" fill="#10B981" />
+              <text x={end.x} y={end.y} textAnchor="middle" dominantBaseline="central" fontSize="2.8">
                 🎯
               </text>
             </g>
@@ -118,31 +127,11 @@ function TrackingMapCanvasComponent({
         </div>
       </MapBaseLayer>
 
-      <div className="absolute bottom-3 left-3 right-3 z-30">
-        <div className="bg-card/95 backdrop-blur-md rounded-2xl px-3 py-2.5 shadow-md border border-border">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-success home-map-live-dot shrink-0" />
-              <span className="text-xs font-semibold truncate">En vivo · Cali</span>
-            </div>
-            <span className="text-xs font-bold text-primary shrink-0">
-              {Math.round(clampedProgress)}%
-            </span>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-primary via-secondary to-success rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${clampedProgress}%` }}
-            />
-          </div>
-          {(elapsedLabel || distanceKm > 0) && (
-            <div className="flex items-center justify-between mt-2 text-[11px] text-muted-foreground">
-              {elapsedLabel ? <span>Tiempo: {elapsedLabel}</span> : <span />}
-              {distanceKm > 0 && <span>{distanceKm.toFixed(2)} km</span>}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Soft fade so route does not clash with top overlays */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-[4] h-24 bg-gradient-to-b from-[#e8edf2]/95 to-transparent"
+        aria-hidden
+      />
     </div>
   );
 }

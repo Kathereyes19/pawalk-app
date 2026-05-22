@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Phone, MessageSquare, AlertCircle, MapPin, Clock, Navigation, Play, Pause, Camera, Heart, CheckCircle2, TrendingUp, Shield, Zap, Activity, PawPrint } from 'lucide-react';
+import { ArrowLeft, Phone, MessageSquare, AlertCircle, MapPin, Clock, Navigation, Play, Pause, Heart, CheckCircle2, TrendingUp, Shield, Activity } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getElapsedWalkSeconds, getWalkProgress } from '@/features/reservations';
 import { Button } from '../components/Button';
@@ -282,219 +282,154 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: isMapLoaded ? 1 : 0, scale: isMapLoaded ? 1 : 0.98 }}
         transition={{ duration: 0.45, delay: 0.15 }}
-        className="flex-1 relative overflow-hidden"
+        className="relative min-h-[240px] flex-1 overflow-hidden"
       >
         <TrackingMapCanvas
           progressPercent={displayProgress}
           walkerAvatar={walker.avatar}
-          elapsedLabel={formatTime(elapsedTime)}
-          distanceKm={distance}
         />
 
-        {/* Status Banner */}
-        <div className="absolute top-4 left-4 right-16">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={walkStatus}
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-            >
-              <Card className="shadow-2xl border-2 border-white/50 backdrop-blur-md bg-card/95">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <motion.div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        walkStatus === 'on-way'
-                          ? 'bg-secondary/20'
-                          : walkStatus === 'break'
-                          ? 'bg-accent/20'
-                          : 'bg-success/20'
-                      }`}
-                    >
-                      {walkStatus === 'on-way' && <Clock className="w-6 h-6 text-secondary" />}
-                      {walkStatus === 'started' && <Play className="w-6 h-6 text-success" />}
-                      {walkStatus === 'break' && <Pause className="w-6 h-6 text-accent" />}
-                    </motion.div>
-                    <motion.div
-                      className={`absolute inset-0 rounded-full ${
-                        walkStatus === 'on-way'
-                          ? 'bg-secondary'
-                          : walkStatus === 'break'
-                          ? 'bg-accent'
-                          : 'bg-success'
-                      } home-map-user-pulse`}
-                    />
-                  </div>
+        {/* Top overlay: status + back (above map, never covered by route) */}
+        <div className="absolute inset-x-0 top-0 z-30 flex items-start gap-3 p-4 pointer-events-none">
+          <div className="flex-1 min-w-0 pointer-events-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={walkStatus}
+                initial={{ y: -12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -12, opacity: 0 }}
+              >
+                <Card className="shadow-xl border border-border/80 backdrop-blur-md bg-card/95">
+                  <div className="flex items-center gap-3">
+                    <div className="relative shrink-0">
+                      <div
+                        className={`w-11 h-11 rounded-full flex items-center justify-center ${
+                          walkStatus === 'on-way'
+                            ? 'bg-secondary/20'
+                            : walkStatus === 'break'
+                            ? 'bg-accent/20'
+                            : 'bg-success/20'
+                        }`}
+                      >
+                        {walkStatus === 'on-way' && <Clock className="w-5 h-5 text-secondary" />}
+                        {walkStatus === 'started' && <Play className="w-5 h-5 text-success" />}
+                        {walkStatus === 'break' && <Pause className="w-5 h-5 text-accent" />}
+                      </div>
+                    </div>
 
-                  <div className="flex-1">
-                    <p className="font-bold flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm flex items-center gap-2 truncate">
+                        {walkStatus === 'on-way' && t('tracking.walker.on.way')}
+                        {walkStatus === 'started' && t('tracking.walk.started')}
+                        {walkStatus === 'break' && 'Tiempo de descanso'}
+                      </p>
+
                       {walkStatus === 'on-way' && (
-                        <>
-                          {t('tracking.walker.on.way')}
-                          <Badge className="bg-secondary/10 text-secondary text-xs px-2 py-0.5">
-                            Llegando pronto
-                          </Badge>
-                        </>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          ETA: {eta} min · {distance.toFixed(1)} km
+                        </p>
                       )}
-                      {walkStatus === 'started' && (
-                        <>
-                          {t('tracking.walk.started')}
-                          <Badge className="bg-success/10 text-success text-xs px-2 py-0.5">
-                            En curso
-                          </Badge>
-                        </>
-                      )}
-                      {walkStatus === 'break' && (
-                        <>
-                          Tiempo de descanso
-                          <Badge className="bg-accent/10 text-accent text-xs px-2 py-0.5">
-                            Pausa
-                          </Badge>
-                        </>
-                      )}
-                    </p>
 
-                    {walkStatus === 'on-way' && (
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          <motion.span
-                            key={eta}
-                            initial={{ scale: 1.2, color: '#FF6B35' }}
-                            animate={{ scale: 1, color: 'currentColor' }}
-                          >
-                            ETA: {eta} min
-                          </motion.span>
-                        </div>
-                        <div className="w-1 h-1 bg-border rounded-full" />
-                        <span>{distance.toFixed(1)} km recorridos</span>
-                      </div>
-                    )}
-
-                    {(walkStatus === 'started' || walkStatus === 'break') && (
-                      <div className="flex items-center gap-3 text-sm mt-1">
-                        {reservation && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1 mr-1">
-                            <PawPrint className="w-3.5 h-3.5" />
-                            {reservation.petName}
-                          </span>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex items-center gap-1 text-primary font-semibold">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{formatTime(elapsedTime)}</span>
-                          </div>
-                          <div className="w-1 h-1 bg-border rounded-full" />
-                          <span className="text-muted-foreground">{distance.toFixed(2)} km</span>
-                          <div className="w-1 h-1 bg-border rounded-full" />
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>{photos}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                      {(walkStatus === 'started' || walkStatus === 'break') && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {reservation?.petName && `${reservation.petName} · `}
+                          {formatTime(elapsedTime)} · {distance.toFixed(2)} km
+                          {photos > 0 && ` · ${photos} fotos`}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </motion.div>
-          </AnimatePresence>
+                </Card>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <IconButton
+            onClick={onBack}
+            variant="default"
+            aria-label="Volver a reservas"
+            className="pointer-events-auto shrink-0 shadow-lg bg-card/95 backdrop-blur-md border border-border/80"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </IconButton>
         </div>
 
         {/* Floating Notifications */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
-              initial={{ y: -100, opacity: 0 }}
+              initial={{ y: -80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -100, opacity: 0 }}
-              className="absolute top-24 left-4 right-4"
+              exit={{ y: -80, opacity: 0 }}
+              className="absolute top-[5.5rem] left-4 right-4 z-40"
             >
               <Card className="shadow-2xl bg-gradient-to-r from-primary to-accent text-white border-0">
                 <div className="flex items-center gap-3">
-                  <motion.div
-                    animate={{ rotate: [0, 10, -10, 0] }}
-                    transition={{ duration: 0.5, repeat: 2 }}
-                    className="text-2xl"
-                  >
-                    📸
-                  </motion.div>
-                  <p className="font-semibold flex-1">{notificationText}</p>
-                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="text-xl">📸</span>
+                  <p className="font-semibold flex-1 text-sm">{notificationText}</p>
+                  <CheckCircle2 className="w-5 h-5 shrink-0" />
                 </div>
               </Card>
             </motion.div>
           )}
         </AnimatePresence>
+      </motion.div>
 
-        {/* Live Stats Mini Cards */}
-        <div className="absolute top-44 left-4 right-4 flex gap-2">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className="flex-1"
-          >
-            <Card padding="sm" className="bg-card/90 backdrop-blur-md border border-white/50 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <Activity className="w-4 h-4 text-primary" />
-                <span className="text-xs font-medium text-muted-foreground">Ritmo</span>
-              </div>
-              <p className="text-lg font-bold">{currentSpeed.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">km/h</p>
-            </Card>
-          </motion.div>
+      {/* Live stats — dedicated row, no map overlap */}
+      <div className="shrink-0 px-4 py-3 bg-background border-y border-border/60 z-20">
+        <div className="grid grid-cols-3 gap-2">
+          <Card padding="sm" className="text-center bg-card shadow-sm">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Activity className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-medium text-muted-foreground">Ritmo</span>
+            </div>
+            <p className="text-base font-bold">{currentSpeed.toFixed(1)}</p>
+            <p className="text-[10px] text-muted-foreground">km/h</p>
+          </Card>
 
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.4 }}
-            className="flex-1"
-          >
-            <Card padding="sm" className="bg-card/90 backdrop-blur-md border border-white/50 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <Heart className="w-4 h-4 text-destructive" />
-                <span className="text-xs font-medium text-muted-foreground">FC Mascota</span>
-              </div>
-              <p className="text-lg font-bold">{Math.round(heartRate)}</p>
-              <p className="text-xs text-muted-foreground">bpm</p>
-            </Card>
-          </motion.div>
+          <Card padding="sm" className="text-center bg-card shadow-sm">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Heart className="w-3.5 h-3.5 text-destructive" />
+              <span className="text-[11px] font-medium text-muted-foreground">FC Mascota</span>
+            </div>
+            <p className="text-base font-bold">{Math.round(heartRate)}</p>
+            <p className="text-[10px] text-muted-foreground">bpm</p>
+          </Card>
 
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.5 }}
-            className="flex-1"
-          >
-            <Card padding="sm" className="bg-card/90 backdrop-blur-md border border-white/50 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <TrendingUp className="w-4 h-4 text-success" />
-                <span className="text-xs font-medium text-muted-foreground">Calorías</span>
-              </div>
-              <p className="text-lg font-bold">{Math.round(distance * 45)}</p>
-              <p className="text-xs text-muted-foreground">kcal</p>
-            </Card>
-          </motion.div>
+          <Card padding="sm" className="text-center bg-card shadow-sm">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <TrendingUp className="w-3.5 h-3.5 text-success" />
+              <span className="text-[11px] font-medium text-muted-foreground">Calorías</span>
+            </div>
+            <p className="text-base font-bold">{Math.round(distance * 45)}</p>
+            <p className="text-[10px] text-muted-foreground">kcal</p>
+          </Card>
         </div>
 
-        {/* Back Button */}
-        <IconButton
-          onClick={onBack}
-          variant="default"
-          className="absolute top-4 right-4 shadow-lg bg-white/90 backdrop-blur-md border border-white/50"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </IconButton>
-      </motion.div>
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="font-semibold text-muted-foreground">Progreso del paseo</span>
+            <span className="font-bold text-primary">{Math.round(displayProgress)}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-primary via-secondary to-success rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${displayProgress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+            <span>Tiempo: {formatTime(elapsedTime)}</span>
+            <span>{distance.toFixed(2)} km</span>
+          </div>
+        </div>
+      </div>
 
       {/* Bottom Panel */}
       <motion.div
         initial={{ y: 300 }}
         animate={{ y: 0 }}
         transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-        className="bg-background border-t-2 border-border/50 pb-safe"
+        className="shrink-0 bg-background border-t border-border/50 pb-safe max-h-[42vh] overflow-y-auto"
       >
         {/* Walker Info Card */}
         <div className="p-4 pb-4">

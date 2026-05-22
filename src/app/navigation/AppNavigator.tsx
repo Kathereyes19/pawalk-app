@@ -134,7 +134,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
           <LiveTrackingScreen
             walker={selectedWalker}
             reservation={navigation.activeReservation}
-            onBack={handlers.handleBackHome}
+            onBack={handlers.handleBackFromTracking}
             onWalkComplete={handlers.handleWalkComplete}
           />
         );
