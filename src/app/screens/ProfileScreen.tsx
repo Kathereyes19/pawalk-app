@@ -1,42 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from 'next-themes';
-import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Users,
-  LogOut,
-  Camera,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Pencil,
-  PawPrint,
-  Shield,
-  Bell,
-  Globe,
-  Sun,
-  Moon,
-  Accessibility,
-  Type,
-  Sparkles,
-  ChevronRight,
-} from 'lucide-react';
+import { Pencil, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserData } from '@/contexts/UserDataContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { upsertProfile } from '@/features/profile';
 import { Button } from '../components/Button';
-import { Input } from '../components/Input';
-import { Card } from '../components/Card';
-import { Avatar } from '../components/Avatar';
-import { ProfileInfoRow } from '../components/profile/ProfileInfoRow';
-import { ProfileSectionCard } from '../components/profile/ProfileSectionCard';
 import { PaymentMethodsSection } from '../components/payments/PaymentMethodsSection';
 import { RemindersSection } from '../components/reminders/RemindersSection';
-import { getUserAvatarProps, getPetAvatarProps } from '@/lib/avatars';
+import { ProfileDesktopDashboard } from '../components/profile/ProfileDesktopDashboard';
+import {
+  ProfileHeroCard,
+  ProfileContactSection,
+  ProfilePetsSection,
+  ProfileAccountMetaSection,
+  ProfilePreferencesViewSection,
+  ProfileAccessibilitySection,
+  ProfileLogoutButton,
+  ProfileEditAvatarCard,
+  ProfileEditFormFields,
+  ProfileEditPreferencesSection,
+  type AccessibilityPrefs,
+} from '../components/profile/ProfileSectionBlocks';
+import { getUserAvatarProps } from '@/lib/avatars';
 import type { UserProfile } from '@/types';
 
 interface ProfileScreenProps {
@@ -50,14 +37,7 @@ interface ProfileScreenProps {
 type ProfileMode = 'view' | 'edit';
 type SaveStatus = 'idle' | 'success' | 'error';
 
-const avatarOptions = ['👤', '👨🏻', '👩🏻', '👨🏽', '👩🏽', '👨🏼', '👩🏼', '👨🏿', '👩🏿'];
-
 const ACCESSIBILITY_KEY = 'pawalk_accessibility_prefs';
-
-interface AccessibilityPrefs {
-  largeText: boolean;
-  reduceMotion: boolean;
-}
 
 function loadAccessibilityPrefs(): AccessibilityPrefs {
   try {
@@ -150,6 +130,108 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     );
   }, [draft, userId]);
 
+  const contactLabels = useMemo(
+    () => ({
+      name: t('profile.field.name'),
+      email: t('profile.field.email'),
+      phone: t('profile.field.phone'),
+      neighborhood: t('profile.field.neighborhood'),
+      emergency: t('profile.field.emergency'),
+      notSet: t('profile.notSet'),
+    }),
+    [t]
+  );
+
+  const desktopCopy = useMemo(
+    () => ({
+      title: t('profile.title'),
+      subtitleView: t('profile.subtitle.view'),
+      subtitleEdit: t('profile.subtitle.edit'),
+      edit: t('profile.edit'),
+      cancel: t('cancel'),
+      save: t('save'),
+      saveSuccess: t('profile.save.success'),
+      saveError: t('profile.save.error'),
+      notSet: t('profile.notSet'),
+      logout: t('profile.logout'),
+      photoHint: t('profile.edit.photo'),
+      section: {
+        contact: t('profile.section.contact'),
+        account: t('profile.section.account'),
+        pets: t('profile.section.pets'),
+        petsDesc: t('profile.section.pets.desc'),
+        preferences: t('profile.section.preferences'),
+        accessibility: t('profile.section.accessibility'),
+      },
+      field: {
+        name: t('profile.field.name'),
+        email: t('profile.field.email'),
+        phone: t('profile.field.phone'),
+        neighborhood: t('profile.field.neighborhood'),
+        emergency: t('profile.field.emergency'),
+        emergencyPhone: t('profile.field.emergencyPhone'),
+      },
+      pets: {
+        viewAll: t('profile.pets.viewAll'),
+        empty: t('profile.pets.empty'),
+        more: t('profile.pets.more'),
+      },
+      pet: { cat: t('pet.cat'), dog: t('pet.dog') },
+      account: {
+        security: t('profile.account.security'),
+        securityDesc: t('profile.account.security.desc'),
+        member: t('profile.account.member'),
+        memberDesc: t('profile.account.member.desc'),
+      },
+      prefs: {
+        notifications: t('profile.prefs.notifications'),
+        push: t('profile.prefs.push'),
+        email: t('profile.prefs.email'),
+        sms: t('profile.prefs.sms'),
+        none: t('profile.prefs.none'),
+        pushDesc: t('profile.prefs.push.desc'),
+        emailDesc: t('profile.prefs.email.desc'),
+        smsDesc: t('profile.prefs.sms.desc'),
+      },
+      a11y: {
+        largeText: t('profile.a11y.largeText'),
+        largeTextDesc: t('profile.a11y.largeText.desc'),
+        reduceMotion: t('profile.a11y.reduceMotion'),
+        reduceMotionDesc: t('profile.a11y.reduceMotion.desc'),
+      },
+      language: t('language'),
+      theme: t('theme'),
+      light: t('light'),
+      dark: t('dark'),
+    }),
+    [t]
+  );
+
+  const a11yLabels = useMemo(
+    () => ({
+      largeText: t('profile.a11y.largeText'),
+      largeTextDesc: t('profile.a11y.largeText.desc'),
+      reduceMotion: t('profile.a11y.reduceMotion'),
+      reduceMotionDesc: t('profile.a11y.reduceMotion.desc'),
+    }),
+    [t]
+  );
+
+  const prefsViewLabels = useMemo(
+    () => ({
+      language: t('language'),
+      theme: t('theme'),
+      dark: t('dark'),
+      light: t('light'),
+      notifications: t('profile.prefs.notifications'),
+      push: t('profile.prefs.push'),
+      email: t('profile.prefs.email'),
+      sms: t('profile.prefs.sms'),
+      none: t('profile.prefs.none'),
+    }),
+    [t]
+  );
+
   const startEditing = () => {
     if (!displayProfile) return;
     setDraft({ ...displayProfile });
@@ -216,477 +298,239 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   if (isLoading || !displayProfile) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-3 pb-24">
+      <div className="h-full flex flex-col items-center justify-center gap-3 pb-24 md:pb-6">
         <Loader2 className="w-10 h-10 text-primary animate-spin" aria-label={t('profile.loading')} />
         <p className="text-sm text-muted-foreground">{t('profile.loading')}</p>
       </div>
     );
   }
 
+  const statusBanners = (
+    <AnimatePresence>
+      {status === 'success' && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="flex items-center gap-2 p-3 rounded-xl bg-success/10 text-success text-sm"
+        >
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
+          {t('profile.save.success')}
+        </motion.div>
+      )}
+      {status === 'error' && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive text-sm"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          {errorMessage || t('profile.save.error')}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
-    <div className="h-full overflow-y-auto pb-24 md:pb-6 bg-background-secondary">
-      <div className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border px-4 py-4 z-10">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
-            <p className="text-sm text-muted-foreground">
-              {mode === 'view' ? t('profile.subtitle.view') : t('profile.subtitle.edit')}
-            </p>
+    <div className="h-full bg-background-secondary">
+      {/* Mobile — unchanged stacked layout */}
+      <div className="md:hidden h-full overflow-y-auto pb-24">
+        <div className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border px-4 py-4 z-10">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
+              <p className="text-sm text-muted-foreground">
+                {mode === 'view' ? t('profile.subtitle.view') : t('profile.subtitle.edit')}
+              </p>
+            </div>
+            {mode === 'view' ? (
+              <Button size="sm" variant="outline" onClick={startEditing}>
+                <Pencil className="w-4 h-4" />
+                {t('profile.edit')}
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={isSaving}>
+                {t('cancel')}
+              </Button>
+            )}
           </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {statusBanners}
+
           {mode === 'view' ? (
-            <Button size="sm" variant="outline" onClick={startEditing}>
-              <Pencil className="w-4 h-4" />
-              {t('profile.edit')}
-            </Button>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={isSaving}>
-              {t('cancel')}
-            </Button>
-          )}
+            <>
+              <ProfileHeroCard
+                avatarProps={userAvatarProps}
+                fullName={displayProfile.fullName}
+                email={displayProfile.email}
+                phone={displayProfile.phone}
+                notSetLabel={t('profile.notSet')}
+              />
+
+              <ProfileContactSection
+                profile={displayProfile}
+                title={t('profile.section.contact')}
+                labels={contactLabels}
+              />
+
+              <ProfilePetsSection
+                pets={pets}
+                title={t('profile.section.pets')}
+                description={t('profile.section.pets.desc')}
+                emptyLabel={t('profile.pets.empty')}
+                viewAllLabel={t('profile.pets.viewAll')}
+                moreLabel={t('profile.pets.more')}
+                catLabel={t('pet.cat')}
+                dogLabel={t('pet.dog')}
+                onNavigateToPets={onNavigateToPets}
+              />
+
+              <PaymentMethodsSection />
+
+              {onOpenReminders ? <RemindersSection onOpenReminders={onOpenReminders} /> : null}
+
+              <ProfileAccountMetaSection
+                title={t('profile.section.account')}
+                securityLabel={t('profile.account.security')}
+                securityDesc={t('profile.account.security.desc')}
+                memberLabel={t('profile.account.member')}
+                memberDesc={t('profile.account.member.desc')}
+                showAdminEntry={showAdminEntry}
+                onOpenAdmin={onOpenAdmin}
+              />
+
+              <ProfilePreferencesViewSection
+                title={t('profile.section.preferences')}
+                profile={displayProfile}
+                theme={theme}
+                labels={prefsViewLabels}
+              />
+
+              <ProfileAccessibilitySection
+                title={t('profile.section.accessibility')}
+                accessibility={accessibility}
+                labels={a11yLabels}
+                onToggle={toggleAccessibility}
+              />
+
+              <ProfileLogoutButton label={t('profile.logout')} onLogout={onLogout} />
+            </>
+          ) : draft ? (
+            <>
+              <ProfileEditAvatarCard
+                avatarProps={draftAvatarProps}
+                draft={draft}
+                photoHint={t('profile.edit.photo')}
+                onImageChange={handleImageChange}
+                onEmojiSelect={(emoji) =>
+                  setDraft({ ...draft, avatar: emoji, avatarUrl: null })
+                }
+              >
+                <ProfileEditFormFields
+                  draft={draft}
+                  labels={{
+                    name: t('profile.field.name'),
+                    email: t('profile.field.email'),
+                    phone: t('profile.field.phone'),
+                    neighborhood: t('profile.field.neighborhood'),
+                    emergency: t('profile.field.emergency'),
+                    emergencyPhone: t('profile.field.emergencyPhone'),
+                  }}
+                  onChange={(patch) => setDraft({ ...draft, ...patch })}
+                />
+              </ProfileEditAvatarCard>
+
+              <ProfileEditPreferencesSection
+                title={t('profile.section.preferences')}
+                draft={draft}
+                theme={theme}
+                labels={{
+                  language: t('language'),
+                  theme: t('theme'),
+                  light: t('light'),
+                  dark: t('dark'),
+                  push: t('profile.prefs.push'),
+                  pushDesc: t('profile.prefs.push.desc'),
+                  email: t('profile.prefs.email'),
+                  emailDesc: t('profile.prefs.email.desc'),
+                  sms: t('profile.prefs.sms'),
+                  smsDesc: t('profile.prefs.sms.desc'),
+                }}
+                onDraftChange={(patch) => setDraft({ ...draft, ...patch })}
+                onNotificationToggle={(key) =>
+                  setDraft({
+                    ...draft,
+                    notifications: {
+                      ...draft.notifications,
+                      [key]: !draft.notifications[key],
+                    },
+                  })
+                }
+                onThemeChange={setTheme}
+              />
+
+              <div className="flex gap-3 pt-1">
+                <Button
+                  fullWidth
+                  size="lg"
+                  variant="outline"
+                  onClick={cancelEditing}
+                  disabled={isSaving}
+                >
+                  {t('cancel')}
+                </Button>
+                <Button fullWidth size="lg" loading={isSaving} onClick={handleSave}>
+                  {t('save')}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
 
-      <div className="p-4 space-y-4 md:p-6 md:max-w-6xl md:mx-auto md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0 md:items-start">
-        <AnimatePresence>
-          {status === 'success' && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2 p-3 rounded-xl bg-success/10 text-success text-sm md:col-span-2 lg:col-span-3"
-            >
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-              {t('profile.save.success')}
-            </motion.div>
-          )}
-          {status === 'error' && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive text-sm md:col-span-2 lg:col-span-3"
-            >
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              {errorMessage || t('profile.save.error')}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {mode === 'view' ? (
-          <>
-            <Card padding="lg" variant="elevated" className="md:col-span-2 lg:col-span-3">
-              <div className="flex flex-col items-center text-center">
-                <Avatar
-                  {...userAvatarProps}
-                  size="2xl"
-                  className="mb-4"
-                />
-                <h2 className="text-xl font-bold">{displayProfile.fullName || t('profile.notSet')}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{displayProfile.email}</p>
-                {displayProfile.phone && (
-                  <p className="text-sm text-muted-foreground mt-0.5">{displayProfile.phone}</p>
-                )}
-              </div>
-            </Card>
-
-            <ProfileSectionCard title={t('profile.section.contact')}>
-              <ProfileInfoRow
-                icon={<User className="w-5 h-5" />}
-                label={t('profile.field.name')}
-                value={displayProfile.fullName}
-                placeholder={t('profile.notSet')}
-              />
-              <ProfileInfoRow
-                icon={<Mail className="w-5 h-5" />}
-                label={t('profile.field.email')}
-                value={displayProfile.email}
-              />
-              <ProfileInfoRow
-                icon={<Phone className="w-5 h-5" />}
-                label={t('profile.field.phone')}
-                value={displayProfile.phone}
-                placeholder={t('profile.notSet')}
-              />
-              <ProfileInfoRow
-                icon={<MapPin className="w-5 h-5" />}
-                label={t('profile.field.neighborhood')}
-                value={displayProfile.neighborhood}
-                placeholder={t('profile.notSet')}
-              />
-              <ProfileInfoRow
-                icon={<Users className="w-5 h-5" />}
-                label={t('profile.field.emergency')}
-                value={
-                  displayProfile.emergencyContact
-                    ? `${displayProfile.emergencyContact}${displayProfile.emergencyPhone ? ` · ${displayProfile.emergencyPhone}` : ''}`
-                    : undefined
-                }
-                placeholder={t('profile.notSet')}
-              />
-            </ProfileSectionCard>
-
-            <ProfileSectionCard
-              title={t('profile.section.pets')}
-              description={t('profile.section.pets.desc')}
-              action={
-                onNavigateToPets ? (
-                  <button
-                    type="button"
-                    onClick={onNavigateToPets}
-                    className="text-sm font-medium text-primary flex items-center gap-1"
-                  >
-                    {t('profile.pets.viewAll')}
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                ) : undefined
-              }
-            >
-              {pets.length === 0 ? (
-                <div className="px-3 py-4 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-muted mx-auto mb-3 flex items-center justify-center">
-                    <PawPrint className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">{t('profile.pets.empty')}</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {pets.slice(0, 3).map((pet) => (
-                    <ProfileInfoRow
-                      key={pet.id}
-                      bareIcon
-                      icon={
-                        <Avatar
-                          {...getPetAvatarProps({
-                            avatar: pet.avatar,
-                            species: pet.species,
-                            name: pet.name,
-                            id: pet.id,
-                          })}
-                          size="sm"
-                        />
-                      }
-                      label={pet.species === 'cat' ? t('pet.cat') : t('pet.dog')}
-                      value={`${pet.name} · ${pet.breed}`}
-                      onClick={onNavigateToPets}
-                    />
-                  ))}
-                  {pets.length > 3 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      {t('profile.pets.more').replace('{count}', String(pets.length - 3))}
-                    </p>
-                  )}
-                </div>
-              )}
-            </ProfileSectionCard>
-
-            <PaymentMethodsSection />
-
-            {onOpenReminders && <RemindersSection onOpenReminders={onOpenReminders} />}
-
-            <ProfileSectionCard title={t('profile.section.account')}>
-              {showAdminEntry && onOpenAdmin && (
-                <button
-                  type="button"
-                  onClick={onOpenAdmin}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors mb-1"
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <Shield className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-medium">Panel de administración</p>
-                    <p className="text-xs text-muted-foreground">Dashboard, usuarios y analíticas</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              )}
-              <ProfileInfoRow
-                icon={<Shield className="w-5 h-5" />}
-                label={t('profile.account.security')}
-                value={t('profile.account.security.desc')}
-              />
-              <ProfileInfoRow
-                icon={<Sparkles className="w-5 h-5" />}
-                label={t('profile.account.member')}
-                value={t('profile.account.member.desc')}
-              />
-            </ProfileSectionCard>
-
-            <ProfileSectionCard title={t('profile.section.preferences')}>
-              <ProfileInfoRow
-                icon={<Globe className="w-5 h-5" />}
-                label={t('language')}
-                value={displayProfile.language === 'en' ? 'English' : 'Español'}
-              />
-              <ProfileInfoRow
-                icon={theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                label={t('theme')}
-                value={theme === 'dark' ? t('dark') : t('light')}
-              />
-              <ProfileInfoRow
-                icon={<Bell className="w-5 h-5" />}
-                label={t('profile.prefs.notifications')}
-                value={[
-                  displayProfile.notifications.push && t('profile.prefs.push'),
-                  displayProfile.notifications.email && t('profile.prefs.email'),
-                  displayProfile.notifications.sms && t('profile.prefs.sms'),
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || t('profile.prefs.none')}
-              />
-            </ProfileSectionCard>
-
-            <ProfileSectionCard title={t('profile.section.accessibility')}>
-              <button
-                type="button"
-                onClick={() => toggleAccessibility('largeText')}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Type className="w-5 h-5" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">{t('profile.a11y.largeText')}</p>
-                  <p className="text-xs text-muted-foreground">{t('profile.a11y.largeText.desc')}</p>
-                </div>
-                <div
-                  className={`w-12 h-7 rounded-full transition-colors relative ${
-                    accessibility.largeText ? 'bg-primary' : 'bg-border'
-                  }`}
-                >
-                  <motion.div
-                    className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md"
-                    animate={{ x: accessibility.largeText ? 22 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleAccessibility('reduceMotion')}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Accessibility className="w-5 h-5" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">{t('profile.a11y.reduceMotion')}</p>
-                  <p className="text-xs text-muted-foreground">{t('profile.a11y.reduceMotion.desc')}</p>
-                </div>
-                <div
-                  className={`w-12 h-7 rounded-full transition-colors relative ${
-                    accessibility.reduceMotion ? 'bg-primary' : 'bg-border'
-                  }`}
-                >
-                  <motion.div
-                    className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md"
-                    animate={{ x: accessibility.reduceMotion ? 22 : 2 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                </div>
-              </button>
-            </ProfileSectionCard>
-
-            <Button
-              fullWidth
-              size="lg"
-              variant="outline"
-              onClick={onLogout}
-              className="text-destructive border-destructive/30 hover:bg-destructive/5 md:col-span-2 lg:col-span-3"
-            >
-              <LogOut className="w-5 h-5" />
-              {t('profile.logout')}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Card padding="lg" className="md:col-span-2 lg:col-span-3">
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative">
-                  <Avatar
-                    {...draftAvatarProps}
-                    size="2xl"
-                  />
-                  <label className="absolute -bottom-1 -right-1 w-10 h-10 bg-primary rounded-full flex items-center justify-center cursor-pointer shadow-lg">
-                    <Camera className="w-5 h-5 text-primary-foreground" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">{t('profile.edit.photo')}</p>
-              </div>
-
-              <div className="flex flex-wrap gap-2 justify-center mb-6">
-                {avatarOptions.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => draft && setDraft({ ...draft, avatar: emoji, avatarUrl: null })}
-                    className={`w-10 h-10 rounded-xl text-xl transition-all ${
-                      draft?.avatar === emoji ? 'bg-primary/20 ring-2 ring-primary' : 'bg-muted'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-4">
-                <Input
-                  label={t('profile.field.name')}
-                  icon={<User className="w-5 h-5" />}
-                  value={draft?.fullName ?? ''}
-                  onChange={(e) => draft && setDraft({ ...draft, fullName: e.target.value })}
-                />
-                <Input
-                  label={t('profile.field.email')}
-                  type="email"
-                  icon={<Mail className="w-5 h-5" />}
-                  value={draft?.email ?? ''}
-                  onChange={(e) => draft && setDraft({ ...draft, email: e.target.value })}
-                />
-                <Input
-                  label={t('profile.field.phone')}
-                  icon={<Phone className="w-5 h-5" />}
-                  value={draft?.phone ?? ''}
-                  onChange={(e) => draft && setDraft({ ...draft, phone: e.target.value })}
-                />
-                <Input
-                  label={t('profile.field.neighborhood')}
-                  icon={<MapPin className="w-5 h-5" />}
-                  value={draft?.neighborhood ?? ''}
-                  onChange={(e) => draft && setDraft({ ...draft, neighborhood: e.target.value })}
-                />
-                <Input
-                  label={t('profile.field.emergency')}
-                  icon={<Users className="w-5 h-5" />}
-                  value={draft?.emergencyContact ?? ''}
-                  onChange={(e) =>
-                    draft && setDraft({ ...draft, emergencyContact: e.target.value })
-                  }
-                />
-                <Input
-                  label={t('profile.field.emergencyPhone')}
-                  icon={<Phone className="w-5 h-5" />}
-                  value={draft?.emergencyPhone ?? ''}
-                  onChange={(e) =>
-                    draft && setDraft({ ...draft, emergencyPhone: e.target.value })
-                  }
-                />
-              </div>
-            </Card>
-
-            <ProfileSectionCard title={t('profile.section.preferences')}>
-              <label className="block px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
-                {t('language')}
-              </label>
-              <div className="grid grid-cols-2 gap-2 px-2 pb-2">
-                {[
-                  { value: 'es' as const, label: 'Español', flag: '🇪🇸' },
-                  { value: 'en' as const, label: 'English', flag: '🇺🇸' },
-                ].map((lang) => (
-                  <button
-                    key={lang.value}
-                    type="button"
-                    onClick={() => draft && setDraft({ ...draft, language: lang.value })}
-                    className={`p-3 rounded-xl border-2 transition-all ${
-                      draft?.language === lang.value
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <span className="text-2xl mb-1 block">{lang.flag}</span>
-                    <span className="text-sm font-medium">{lang.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <label className="block px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
-                {t('theme')}
-              </label>
-              <div className="grid grid-cols-2 gap-2 px-2 pb-2">
-                {[
-                  { value: 'light', label: t('light'), icon: Sun },
-                  { value: 'dark', label: t('dark'), icon: Moon },
-                ].map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setTheme(item.value)}
-                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                      theme === item.value
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="px-2 pb-2 space-y-1">
-                {[
-                  { key: 'push' as const, label: t('profile.prefs.push'), desc: t('profile.prefs.push.desc') },
-                  { key: 'email' as const, label: t('profile.prefs.email'), desc: t('profile.prefs.email.desc') },
-                  { key: 'sms' as const, label: t('profile.prefs.sms'), desc: t('profile.prefs.sms.desc') },
-                ].map((notif) => (
-                  <button
-                    key={notif.key}
-                    type="button"
-                    onClick={() =>
-                      draft &&
-                      setDraft({
-                        ...draft,
-                        notifications: {
-                          ...draft.notifications,
-                          [notif.key]: !draft.notifications[notif.key],
-                        },
-                      })
-                    }
-                    className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:border-primary/30 transition-all"
-                  >
-                    <div className="text-left flex-1 pr-3">
-                      <p className="font-medium text-sm">{notif.label}</p>
-                      <p className="text-xs text-muted-foreground">{notif.desc}</p>
-                    </div>
-                    <div
-                      className={`w-12 h-6 rounded-full transition-all shrink-0 ${
-                        draft?.notifications[notif.key] ? 'bg-primary' : 'bg-border'
-                      } relative`}
-                    >
-                      <motion.div
-                        className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
-                        animate={{ x: draft?.notifications[notif.key] ? 26 : 2 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </ProfileSectionCard>
-
-            <div className="flex gap-3 pt-1 md:col-span-2 lg:col-span-3">
-              <Button
-                fullWidth
-                size="lg"
-                variant="outline"
-                onClick={cancelEditing}
-                disabled={isSaving}
-              >
-                {t('cancel')}
-              </Button>
-              <Button fullWidth size="lg" loading={isSaving} onClick={handleSave}>
-                {t('save')}
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Desktop — two-column dashboard */}
+      <ProfileDesktopDashboard
+        mode={mode}
+        displayProfile={displayProfile}
+        draft={draft}
+        pets={pets}
+        theme={theme}
+        accessibility={accessibility}
+        status={status}
+        errorMessage={errorMessage}
+        isSaving={isSaving}
+        userAvatarProps={userAvatarProps}
+        draftAvatarProps={draftAvatarProps}
+        showAdminEntry={showAdminEntry}
+        onStartEditing={startEditing}
+        onCancelEditing={cancelEditing}
+        onSave={handleSave}
+        onLogout={onLogout}
+        onNavigateToPets={onNavigateToPets}
+        onOpenReminders={onOpenReminders}
+        onOpenAdmin={onOpenAdmin}
+        onToggleAccessibility={toggleAccessibility}
+        onImageChange={handleImageChange}
+        onDraftChange={(patch) => draft && setDraft({ ...draft, ...patch })}
+        onEmojiSelect={(emoji) =>
+          draft && setDraft({ ...draft, avatar: emoji, avatarUrl: null })
+        }
+        onNotificationToggle={(key) =>
+          draft &&
+          setDraft({
+            ...draft,
+            notifications: {
+              ...draft.notifications,
+              [key]: !draft.notifications[key],
+            },
+          })
+        }
+        onThemeChange={setTheme}
+        copy={desktopCopy}
+      />
     </div>
   );
 };
