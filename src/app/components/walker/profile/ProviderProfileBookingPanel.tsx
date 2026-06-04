@@ -1,21 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar, Clock, DollarSign, Sparkles, Zap } from 'lucide-react';
-import { Button } from '../../Button';
+import { AlertCircle, Calendar, Clock, DollarSign, PawPrint, Sparkles, Zap } from 'lucide-react';
 import { Badge } from '../../Badge';
 import { Card } from '../../Card';
 import { WalkerAvailabilityBadge } from '../WalkerAvailabilityBadge';
+import { DesktopProfilePetPicker } from './DesktopProfilePetPicker';
+import { ProfileBookCtaButton } from './ProfileBookCtaButton';
 import { buildUpcomingBookingDates } from '@/lib/bookingDates';
 import {
   filterDatesForProvider,
   filterTimeSlotsForProvider,
   getSuggestedProviderBookingSlot,
 } from '@/lib/providers/bookingAvailability';
+import { buildProfileBookingData } from '@/lib/providers/buildProfileBookingData';
 import { getRecommendedBookingQuickPicks } from '@/lib/providers/recommendedBookingPicks';
 import { canBookImmediately } from '@/lib/walkers/availability';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
 import {
+  calculateCategoryBookingTotals,
+  getCareDurationOptions,
   getPriceUnitLabel,
   getProfileBookCta,
+  getVetServicesForProvider,
 } from '@/lib/providers/serviceExperience';
 import { cn } from '../../../utils/cn';
 import {
@@ -30,11 +35,12 @@ import {
   PROFILE_SLOT_DEFAULT,
   PROFILE_SLOT_SELECTED,
 } from './profileButtonStyles';
-import type { Walker } from '@/types';
+import type { BookingData, Pet, Walker } from '@/types';
 
 interface ProviderProfileBookingPanelProps {
   walker: Walker;
-  onBookWalk: () => void;
+  pets: Pet[];
+  onReserve: (bookingData: BookingData) => void;
 }
 
 const BASE_TIME_SLOTS = [
@@ -51,19 +57,43 @@ const BASE_TIME_SLOTS = [
 
 export const ProviderProfileBookingPanel: React.FC<ProviderProfileBookingPanelProps> = ({
   walker,
-  onBookWalk,
+  pets,
+  onReserve,
 }) => {
   const category = getWalkerHomeCategory(walker);
   const instantBooking = canBookImmediately(walker);
   const bookCta = getProfileBookCta(category);
   const priceUnit = getPriceUnitLabel(category);
+  const vetServices = useMemo(() => getVetServicesForProvider(walker), [walker]);
+  const careTypes = walker.caregiverServices ?? ['in-home'];
+
+  const [selectedDuration, setSelectedDuration] = useState<30 | 60 | 90>(60);
+  const [selectedCareDuration, setSelectedCareDuration] = useState(
+    getCareDurationOptions(careTypes[0])[1]?.value ?? 480
+  );
+  const [selectedVetServiceId, setSelectedVetServiceId] = useState(vetServices[0]?.id ?? 'consultation');
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>(() =>
+    pets.length > 0 ? [pets[0].id] : []
+  );
+  const [validationError, setValidationError] = useState('');
+
+  const selectedVetService = useMemo(
+    () => vetServices.find((service) => service.id === selectedVetServiceId) ?? vetServices[0],
+    [selectedVetServiceId, vetServices]
+  );
+
+  const effectiveDurationMinutes = useMemo(() => {
+    if (category === 'walkers') return selectedDuration;
+    if (category === 'caregivers') return selectedCareDuration;
+    return selectedVetService?.durationMinutes ?? 45;
+  }, [category, selectedCareDuration, selectedDuration, selectedVetService]);
 
   const availabilityContext = useMemo(
     () => ({
-      isOvernight: false,
-      duration: category === 'veterinary' ? 45 : 60,
+      isOvernight: category === 'caregivers' && selectedCareDuration >= 1440,
+      duration: effectiveDurationMinutes,
     }),
-    [category]
+    [category, effectiveDurationMinutes, selectedCareDuration]
   );
 
   const suggestedSlot = useMemo(
@@ -97,6 +127,32 @@ export const ProviderProfileBookingPanel: React.FC<ProviderProfileBookingPanelPr
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+
+  useEffect(() => {
+    if (pets.length === 0) {
+      setSelectedPetIds([]);
+      return;
+    }
+    setSelectedPetIds((current) => {
+      const valid = current.filter((id) => pets.some((pet) => pet.id === id));
+      if (valid.length > 0) return valid;
+      return [pets[0].id];
+    });
+  }, [pets]);
+
+  const selectedPetCount = Math.max(1, selectedPetIds.length || (pets.length > 0 ? 1 : 0));
+
+  const estimatedTotal = useMemo(
+    () =>
+      calculateCategoryBookingTotals(
+        walker,
+        category,
+        effectiveDurationMinutes,
+        selectedPetCount,
+        category === 'veterinary' ? selectedVetService : null
+      ).totalPrice,
+    [walker, category, effectiveDurationMinutes, selectedPetCount, selectedVetService]
+  );
 
   useEffect(() => {
     if (selectedDate) return;
@@ -149,15 +205,37 @@ export const ProviderProfileBookingPanel: React.FC<ProviderProfileBookingPanelPr
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     setSelectedTime('');
+    setValidationError('');
   };
 
   const handleRecommendedPick = (date: string, time: string) => {
     setSelectedDate(date);
     setSelectedTime(time);
+    setValidationError('');
   };
 
   const isRecommendedSelected = (date: string, time: string) =>
     effectiveDate === date && selectedTime === time;
+
+  const handleReserve = () => {
+    const result = buildProfileBookingData({
+      walker,
+      selectedDate: effectiveDate,
+      selectedTime,
+      selectedPetIds,
+      pets,
+      selectedDuration,
+      selectedCareDuration,
+      selectedCareType: careTypes[0],
+      selectedVetService,
+    });
+    if (result.error || !result.data) {
+      setValidationError(result.error ?? 'No se pudo preparar la reserva');
+      return;
+    }
+    setValidationError('');
+    onReserve(result.data);
+  };
 
   return (
     <aside
@@ -167,14 +245,16 @@ export const ProviderProfileBookingPanel: React.FC<ProviderProfileBookingPanelPr
       <Card padding="none" className="overflow-hidden border-border shadow-lg">
         <div className="border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-            Precio desde
+            {effectiveDate && selectedTime ? 'Total estimado' : 'Precio desde'}
           </p>
           <div className="flex items-baseline gap-1.5">
             <DollarSign className="h-5 w-5 text-primary" aria-hidden />
             <span className="text-3xl font-bold text-primary">
-              {walker.price.toLocaleString()}
+              {(effectiveDate && selectedTime ? estimatedTotal : walker.price).toLocaleString()}
             </span>
-            <span className="text-sm text-muted-foreground">{priceUnit}</span>
+            <span className="text-sm text-muted-foreground">
+              {effectiveDate && selectedTime ? 'COP' : priceUnit}
+            </span>
           </div>
           <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             {instantBooking ? (
@@ -321,7 +401,10 @@ export const ProviderProfileBookingPanel: React.FC<ProviderProfileBookingPanelPr
                     role="radio"
                     aria-checked={isSelected}
                     disabled={isDisabled}
-                    onClick={() => setSelectedTime(slot.time)}
+                    onClick={() => {
+                      setSelectedTime(slot.time);
+                      setValidationError('');
+                    }}
                     className={cn(
                       PROFILE_SLOT_BASE,
                       isDisabled && PROFILE_CHIP_DISABLED,
@@ -342,18 +425,107 @@ export const ProviderProfileBookingPanel: React.FC<ProviderProfileBookingPanelPr
             </div>
           </div>
 
-          <Button
-            onClick={onBookWalk}
-            size="lg"
-            fullWidth
-            className="min-h-12 shadow-md"
+          <div>
+            <h2 className="mb-3 text-sm font-semibold text-foreground flex items-center gap-2">
+              <PawPrint className="h-4 w-4 text-primary" aria-hidden />
+              Mascotas
+            </h2>
+            <DesktopProfilePetPicker
+              pets={pets}
+              selectedIds={selectedPetIds}
+              onChange={(ids) => {
+                setSelectedPetIds(ids);
+                setValidationError('');
+              }}
+            />
+          </div>
+
+          {category === 'walkers' && (
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Duración</h2>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Duración del paseo">
+                {([30, 60, 90] as const).map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    role="radio"
+                    aria-checked={selectedDuration === minutes}
+                    onClick={() => setSelectedDuration(minutes)}
+                    className={cn(
+                      PROFILE_CHIP_BASE,
+                      selectedDuration === minutes ? PROFILE_CHIP_SELECTED : PROFILE_CHIP_DEFAULT
+                    )}
+                  >
+                    {minutes} min
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {category === 'caregivers' && (
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Duración del cuidado</h2>
+              <div className="flex flex-col gap-2">
+                {getCareDurationOptions(careTypes[0]).slice(0, 4).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelectedCareDuration(option.value)}
+                    className={cn(
+                      PROFILE_CHIP_BASE,
+                      'flex w-full items-center justify-between text-left',
+                      selectedCareDuration === option.value ? PROFILE_CHIP_SELECTED : PROFILE_CHIP_DEFAULT
+                    )}
+                  >
+                    <span>{option.label}</span>
+                    <span className="text-xs opacity-80">{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {category === 'veterinary' && vetServices.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Servicio</h2>
+              <div className="flex flex-col gap-2">
+                {vetServices.slice(0, 3).map((service) => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => setSelectedVetServiceId(service.id)}
+                    className={cn(
+                      PROFILE_CHIP_BASE,
+                      'flex w-full items-center justify-between text-left',
+                      selectedVetServiceId === service.id ? PROFILE_CHIP_SELECTED : PROFILE_CHIP_DEFAULT
+                    )}
+                  >
+                    <span>{service.name}</span>
+                    <span className="text-xs opacity-80">{service.durationMinutes} min</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {validationError && (
+            <div className="flex items-start gap-2 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{validationError}</span>
+            </div>
+          )}
+
+          <ProfileBookCtaButton
+            onClick={handleReserve}
+            disabled={!effectiveDate || !selectedTime || selectedPetIds.length === 0}
           >
-            <Calendar className="h-5 w-5" aria-hidden />
+            <Calendar className="h-5 w-5 shrink-0" aria-hidden />
             {bookCta}
-          </Button>
+          </ProfileBookCtaButton>
 
           <p className="text-center text-xs text-muted-foreground leading-relaxed">
-            Sin cargo hasta confirmar. Puedes revisar mascotas y detalles en el siguiente paso.
+            Confirma fecha, mascota y pago sin salir del perfil.
           </p>
         </div>
       </Card>

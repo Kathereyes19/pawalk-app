@@ -331,6 +331,50 @@ export function useAppNavigation() {
     [selectedWalker, bookingData, resolvedUserId, bookReservation]
   );
 
+  const handleProfileCheckoutConfirm = useCallback(
+    async (
+      data: BookingData,
+      selection: CheckoutPaymentSelection
+    ): Promise<{ error: string | null }> => {
+      setIsNavigating(true);
+      try {
+        if (!selectedWalker) {
+          return { error: 'Faltan datos del proveedor. Vuelve atrás e intenta de nuevo.' };
+        }
+        if (!resolvedUserId) {
+          return { error: 'Inicia sesión para confirmar la reserva.' };
+        }
+
+        setBookingData(data);
+
+        const { error } = await bookReservation({
+          walker: selectedWalker,
+          bookingData: data,
+          pets: data.pets,
+          petId: data.pets?.[0]?.id ?? null,
+          petName: data.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
+          paymentMethod: selection.paymentLabel,
+          paymentMethodId: selection.paymentMethodId,
+        });
+
+        if (error) {
+          return { error };
+        }
+
+        setCurrentScreen('confirmed');
+        return { error: null };
+      } catch (err) {
+        return {
+          error:
+            err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
+        };
+      } finally {
+        setIsNavigating(false);
+      }
+    },
+    [selectedWalker, resolvedUserId, bookReservation]
+  );
+
   const handleViewWalkDetail = useCallback((reservation: Reservation) => {
     setWalkDetailReservation(reservation);
     setCurrentScreen('walk-detail');
@@ -481,6 +525,7 @@ export function useAppNavigation() {
       handleBookWalk,
       handleBookingContinue,
       handleCheckoutConfirm,
+      handleProfileCheckoutConfirm,
       handleViewReservations,
       handleViewTracking,
       handleViewWalkDetail,

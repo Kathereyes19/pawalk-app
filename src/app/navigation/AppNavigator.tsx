@@ -100,8 +100,10 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigation }) => {
         return (
           <WalkerProfileScreen
             walker={selectedWalker}
+            pets={navigation.userPets}
             onBack={handlers.handleBackHome}
             onBookWalk={handlers.handleBookWalk}
+            onProfileCheckoutConfirm={handlers.handleProfileCheckoutConfirm}
           />
         );
 
