@@ -16,7 +16,8 @@ import {
 } from '@/features/user';
 import { waitForAuthSession } from '@/features/auth';
 import { clearPendingOnboarding, setPendingOnboarding } from '@/lib/onboardingSession';
-import { getMockUserId, resolveUserId } from '@/lib/mockUser';
+import { logAuthDebug } from '@/lib/authDebug';
+import { resolveUserId } from '@/lib/mockUser';
 import {
   INITIAL_SCREEN,
   POST_AUTH_HOME,
@@ -27,9 +28,14 @@ import {
 import type { BookingData, CheckoutPaymentSelection, Pet, Reservation, UserProfile, Walker } from '@/types';
 
 export function useAppNavigation() {
-  const { session, isLoading: authLoading, signOut } = useAuth();
   const {
-    userId,
+    session,
+    resolvedUserId,
+    isLoading: authLoading,
+    signOut,
+    confirmAuthenticatedUser,
+  } = useAuth();
+  const {
     profile: profileData,
     pets: userPets,
     onboardingCompleted,
@@ -51,12 +57,8 @@ export function useAppNavigation() {
   const [walkDetailReservation, setWalkDetailReservation] = useState<Reservation | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [welcomeMode, setWelcomeMode] = useState<'intro' | 'none'>('none');
-  /** Set immediately on login so guards see auth before Supabase session propagates */
-  const [confirmedUserId, setConfirmedUserId] = useState<string | null>(() => getMockUserId());
   const hasBootstrapped = useRef(false);
 
-  const resolvedUserId =
-    userId ?? confirmedUserId ?? resolveUserId(session?.user?.id ?? null);
   const isAppReady =
     !authLoading && (!resolvedUserId || !userDataLoading);
   const isAuthenticated = Boolean(resolvedUserId || session);
@@ -76,14 +78,6 @@ export function useAppNavigation() {
     },
     [setProfile, setPets, setOnboardingCompleted]
   );
-
-  /** Keep confirmed user id in sync when Supabase session restores */
-  useEffect(() => {
-    const uid = resolveUserId(session?.user?.id ?? null);
-    if (uid) {
-      setConfirmedUserId(uid);
-    }
-  }, [session?.user?.id]);
 
   /** One-time routing after auth + user data are ready */
   useEffect(() => {
@@ -141,7 +135,7 @@ export function useAppNavigation() {
 
     hasBootstrapped.current = true;
     setWelcomeMode('none');
-    setConfirmedUserId(uid);
+    confirmAuthenticatedUser(uid);
 
     void (async () => {
       setIsNavigating(true);
@@ -158,6 +152,7 @@ export function useAppNavigation() {
     session?.user?.id,
     currentScreen,
     applyBundleAndNavigate,
+    confirmAuthenticatedUser,
   ]);
 
   /** Completed users must not see auth/onboarding again */
@@ -193,7 +188,7 @@ export function useAppNavigation() {
       setWelcomeMode('none');
       hasBootstrapped.current = true;
 
-      let uid = resolveUserId(loginUserId ?? session?.user?.id ?? confirmedUserId);
+      let uid = resolveUserId(loginUserId ?? session?.user?.id ?? resolvedUserId);
       if (!uid) {
         const sessionUserId = await waitForAuthSession();
         uid = resolveUserId(sessionUserId);
@@ -204,7 +199,7 @@ export function useAppNavigation() {
         return;
       }
 
-      setConfirmedUserId(uid);
+      confirmAuthenticatedUser(uid);
       setIsNavigating(true);
       try {
         await applyBundleAndNavigate(uid);
@@ -213,7 +208,7 @@ export function useAppNavigation() {
         setIsNavigating(false);
       }
     },
-    [session?.user?.id, confirmedUserId, applyBundleAndNavigate]
+    [session?.user?.id, resolvedUserId, confirmAuthenticatedUser, applyBundleAndNavigate]
   );
 
   const handleSignUp = useCallback(() => {
@@ -265,7 +260,6 @@ export function useAppNavigation() {
     await signOut();
     clearPendingOnboarding();
     setWelcomeMode('none');
-    setConfirmedUserId(null);
     setProfile(null);
     setPets([]);
     setOnboardingCompleted(false);
@@ -300,8 +294,19 @@ export function useAppNavigation() {
           return { error: 'Faltan datos de la reserva. Vuelve atrás e intenta de nuevo.' };
         }
         if (!resolvedUserId) {
+          logAuthDebug('handleCheckoutConfirm', {
+            resolvedUserId,
+            sessionUserId: session?.user?.id ?? null,
+            hasSession: Boolean(session),
+          });
           return { error: 'Inicia sesión para confirmar la reserva.' };
         }
+
+        logAuthDebug('handleCheckoutConfirm', {
+          resolvedUserId,
+          sessionUserId: session?.user?.id ?? null,
+          walkerId: selectedWalker.id,
+        });
 
         const { error } = await bookReservation({
           walker: selectedWalker,
@@ -328,7 +333,7 @@ export function useAppNavigation() {
         setIsNavigating(false);
       }
     },
-    [selectedWalker, bookingData, resolvedUserId, bookReservation]
+    [selectedWalker, bookingData, resolvedUserId, session, bookReservation]
   );
 
   const handleProfileCheckoutConfirm = useCallback(
@@ -342,8 +347,19 @@ export function useAppNavigation() {
           return { error: 'Faltan datos del proveedor. Vuelve atrás e intenta de nuevo.' };
         }
         if (!resolvedUserId) {
+          logAuthDebug('handleProfileCheckoutConfirm', {
+            resolvedUserId,
+            sessionUserId: session?.user?.id ?? null,
+            hasSession: Boolean(session),
+          });
           return { error: 'Inicia sesión para confirmar la reserva.' };
         }
+
+        logAuthDebug('handleProfileCheckoutConfirm', {
+          resolvedUserId,
+          sessionUserId: session?.user?.id ?? null,
+          walkerId: selectedWalker.id,
+        });
 
         setBookingData(data);
 
@@ -372,7 +388,7 @@ export function useAppNavigation() {
         setIsNavigating(false);
       }
     },
-    [selectedWalker, resolvedUserId, bookReservation]
+    [selectedWalker, resolvedUserId, session, bookReservation]
   );
 
   const handleViewWalkDetail = useCallback((reservation: Reservation) => {

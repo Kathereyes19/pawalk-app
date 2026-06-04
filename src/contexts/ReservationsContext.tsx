@@ -8,7 +8,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { resolveUserId } from '@/lib/mockUser';
+import { logAuthDebug } from '@/lib/authDebug';
 import {
   createReservation,
   fetchReservationsByUserId,
@@ -40,8 +40,7 @@ export interface ReservationsContextValue {
 const ReservationsContext = createContext<ReservationsContextValue | undefined>(undefined);
 
 export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, session, isLoading: authLoading } = useAuth();
-  const userId = resolveUserId(user?.id ?? null);
+  const { session, resolvedUserId: userId, isLoading: authLoading } = useAuth();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +89,11 @@ export const ReservationsProvider: React.FC<{ children: ReactNode }> = ({ childr
   const bookReservation = useCallback(
     async (input: CreateReservationInput) => {
       if (!userId) {
+        logAuthDebug('bookReservation', {
+          resolvedUserId: userId,
+          hasSession: Boolean(session),
+          sessionUserId: session?.user?.id ?? null,
+        });
         return { error: 'Inicia sesión para confirmar la reserva.' };
       }
 

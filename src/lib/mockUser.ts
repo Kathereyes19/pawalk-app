@@ -22,6 +22,17 @@ export function resolveUserId(supabaseUserId?: string | null): string | null {
   return supabaseUserId ?? getMockUserId();
 }
 
+/**
+ * Single source of truth for the active user id.
+ * Prefers Supabase session id, then an optimistic id set at login, then mock storage.
+ */
+export function resolveAuthUserId(
+  sessionUserId?: string | null,
+  optimisticUserId?: string | null
+): string | null {
+  return sessionUserId ?? optimisticUserId ?? getMockUserId();
+}
+
 export function isMockEmailRegistered(email: string): boolean {
   try {
     const list = JSON.parse(localStorage.getItem(MOCK_REGISTRY_KEY) ?? '[]') as string[];

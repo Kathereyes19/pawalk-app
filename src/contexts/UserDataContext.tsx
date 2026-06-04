@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { loadUserBundle, resolveUserRole } from '@/features/user';
-import { resolveUserId } from '@/lib/mockUser';
 import type { Pet, UserProfile } from '@/types';
 import type { UserRole } from '@/types/role';
 
@@ -30,8 +29,7 @@ export interface UserDataContextValue {
 const UserDataContext = createContext<UserDataContextValue | undefined>(undefined);
 
 export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, session, isLoading: authLoading } = useAuth();
-  const userId = resolveUserId(user?.id ?? null);
+  const { session, resolvedUserId: userId, isLoading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -39,8 +37,8 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isLoading, setIsLoading] = useState(false);
 
   const role = useMemo(
-    () => resolveUserRole(profile, profile?.email ?? user?.email ?? null),
-    [profile, user?.email]
+    () => resolveUserRole(profile, profile?.email ?? session?.user?.email ?? null),
+    [profile, session?.user?.email]
   );
   const isAdmin = role === 'admin';
 

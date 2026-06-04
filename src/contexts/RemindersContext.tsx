@@ -9,7 +9,6 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { resolveUserId } from '@/lib/mockUser';
 import {
   countRemindersByStatus,
   filterRemindersByTab,
@@ -64,8 +63,7 @@ const RemindersContext = createContext<RemindersContextValue | undefined>(undefi
 const POLL_INTERVAL_MS = 30_000;
 
 export const RemindersProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, session, isLoading: authLoading } = useAuth();
-  const userId = resolveUserId(user?.id ?? null);
+  const { session, resolvedUserId: userId, isLoading: authLoading } = useAuth();
 
   const [reminders, setReminders] = useState<PetCareReminder[]>([]);
   const [isLoading, setIsLoading] = useState(false);

@@ -8,7 +8,6 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { resolveUserId } from '@/lib/mockUser';
 import {
   createPaymentMethod,
   deletePaymentMethod,
@@ -37,8 +36,7 @@ export interface PaymentMethodsContextValue {
 const PaymentMethodsContext = createContext<PaymentMethodsContextValue | undefined>(undefined);
 
 export const PaymentMethodsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, session, isLoading: authLoading } = useAuth();
-  const userId = resolveUserId(user?.id ?? null);
+  const { session, resolvedUserId: userId, isLoading: authLoading } = useAuth();
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isLoading, setIsLoading] = useState(false);

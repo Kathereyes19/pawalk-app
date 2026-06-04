@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserData } from '@/contexts/UserDataContext';
-import { resolveUserId } from '@/lib/mockUser';
 import {
   createMarketplaceOrder,
   fetchMarketplaceOrdersByUserId,
@@ -75,9 +74,8 @@ export interface MarketplaceContextValue {
 const MarketplaceContext = createContext<MarketplaceContextValue | undefined>(undefined);
 
 export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, session, isLoading: authLoading } = useAuth();
+  const { session, resolvedUserId: userId, isLoading: authLoading } = useAuth();
   const { pets } = useUserData();
-  const userId = resolveUserId(user?.id ?? null);
 
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [filters, setFilters] = useState<MarketplaceFilters>({ ...DEFAULT_FILTERS });
