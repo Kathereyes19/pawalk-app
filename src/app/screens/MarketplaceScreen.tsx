@@ -35,10 +35,10 @@ import { ProductCard } from '../components/marketplace/ProductCard';
 import { ProductGridSkeleton } from '../components/marketplace/ProductCardSkeleton';
 import { ProductImage } from '../components/marketplace/ProductImage';
 import { StarRating } from '../components/marketplace/StarRating';
-import { MarketplaceCategoryChips } from '../components/marketplace/MarketplaceCategoryChips';
 import { MarketplaceTrustBar } from '../components/marketplace/MarketplaceTrustBar';
 import { CartItemRow } from '../components/marketplace/CartItemRow';
 import { MarketplaceFilterSheet } from '../components/marketplace/MarketplaceFilterSheet';
+import { MarketplaceFilterSidebar } from '../components/marketplace/MarketplaceFilterSidebar';
 import { OrderCard } from '../components/marketplace/OrderCard';
 import { OrderTrackingStepper } from '../components/marketplace/OrderTrackingStepper';
 import { RecommendedProductsSection } from '../components/marketplace/RecommendedProductsSection';
@@ -153,7 +153,8 @@ function MarketplaceHomeView() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
-    <div className="h-full overflow-y-auto pb-24">
+    <div className="h-full md:flex md:flex-row md:overflow-hidden">
+      <div className="flex-1 h-full overflow-y-auto pb-24 md:pb-6 min-w-0 order-1">
       <MarketplaceHeader
         title={t('marketplace.title')}
         subtitle={t('marketplace.subtitle')}
@@ -177,7 +178,7 @@ function MarketplaceHomeView() {
             onClick={() => setFiltersOpen(true)}
             variant="outline"
             size="lg"
-            className="shrink-0 shadow-sm"
+            className="shrink-0 shadow-sm md:hidden"
             aria-label="Filtros"
           >
             <SlidersHorizontal className="w-5 h-5 text-primary" />
@@ -185,11 +186,6 @@ function MarketplaceHomeView() {
         </div>
 
         <MarketplaceTrustBar />
-
-        <MarketplaceCategoryChips
-          active={filters.browseCategory}
-          onChange={(browseCategory) => setFilters((current) => ({ ...current, browseCategory }))}
-        />
 
         {isLoading ? (
           <ProductGridSkeleton />
@@ -224,7 +220,7 @@ function MarketplaceHomeView() {
                 </Button>
               </Card>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredProducts.map((product, index) => (
                   <motion.div
                     key={product.id}
@@ -252,6 +248,15 @@ function MarketplaceHomeView() {
         onClose={() => setFiltersOpen(false)}
         onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
         onReset={resetFilters}
+      />
+      </div>
+
+      <MarketplaceFilterSidebar
+        filters={filters}
+        priceBounds={priceBounds}
+        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+        onReset={resetFilters}
+        resultCount={filteredProducts.length}
       />
     </div>
   );

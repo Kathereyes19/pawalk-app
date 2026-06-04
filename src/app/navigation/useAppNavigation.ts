@@ -20,6 +20,7 @@ import { getMockUserId, resolveUserId } from '@/lib/mockUser';
 import {
   INITIAL_SCREEN,
   POST_AUTH_HOME,
+  type AdminTab,
   type AppScreen,
   type BottomNavTab,
 } from '@/navigation';
@@ -32,6 +33,7 @@ export function useAppNavigation() {
     profile: profileData,
     pets: userPets,
     onboardingCompleted,
+    isAdmin,
     isLoading: userDataLoading,
     setProfile,
     setPets,
@@ -42,6 +44,7 @@ export function useAppNavigation() {
 
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(INITIAL_SCREEN);
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('dashboard');
   const [selectedWalker, setSelectedWalker] = useState<Walker | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
@@ -102,6 +105,15 @@ export function useAppNavigation() {
       setCurrentScreen(AUTH_ENTRY_SCREEN);
     }
   }, [isAppReady, isNavigating, isAuthenticated, currentScreen]);
+
+  /** Block non-admin users from admin routes */
+  useEffect(() => {
+    if (!isAppReady || currentScreen !== 'admin') return;
+    if (!isAdmin) {
+      setCurrentScreen(POST_AUTH_HOME);
+      setActiveTab('home');
+    }
+  }, [isAppReady, currentScreen, isAdmin]);
 
   /** Session restore: send completed users to home */
   useEffect(() => {
@@ -258,6 +270,7 @@ export function useAppNavigation() {
     setPets([]);
     setOnboardingCompleted(false);
     setActiveTab('home');
+    setActiveAdminTab('dashboard');
     setActiveReservation(null);
     setBookingData(null);
     setSelectedWalker(null);
@@ -316,6 +329,50 @@ export function useAppNavigation() {
       }
     },
     [selectedWalker, bookingData, resolvedUserId, bookReservation]
+  );
+
+  const handleProfileCheckoutConfirm = useCallback(
+    async (
+      data: BookingData,
+      selection: CheckoutPaymentSelection
+    ): Promise<{ error: string | null }> => {
+      setIsNavigating(true);
+      try {
+        if (!selectedWalker) {
+          return { error: 'Faltan datos del proveedor. Vuelve atrás e intenta de nuevo.' };
+        }
+        if (!resolvedUserId) {
+          return { error: 'Inicia sesión para confirmar la reserva.' };
+        }
+
+        setBookingData(data);
+
+        const { error } = await bookReservation({
+          walker: selectedWalker,
+          bookingData: data,
+          pets: data.pets,
+          petId: data.pets?.[0]?.id ?? null,
+          petName: data.pets?.map((pet) => pet.name).join(', ') ?? 'Mascota',
+          paymentMethod: selection.paymentLabel,
+          paymentMethodId: selection.paymentMethodId,
+        });
+
+        if (error) {
+          return { error };
+        }
+
+        setCurrentScreen('confirmed');
+        return { error: null };
+      } catch (err) {
+        return {
+          error:
+            err instanceof Error ? err.message : 'Ocurrió un error al confirmar la reserva.',
+        };
+      } finally {
+        setIsNavigating(false);
+      }
+    },
+    [selectedWalker, resolvedUserId, bookReservation]
   );
 
   const handleViewWalkDetail = useCallback((reservation: Reservation) => {
@@ -404,20 +461,45 @@ export function useAppNavigation() {
     [isAuthenticated, onboardingCompleted, profileData, userPets]
   );
 
+  const handleOpenAdmin = useCallback(() => {
+    if (!isAdmin) return;
+    setCurrentScreen('admin');
+    setActiveAdminTab('dashboard');
+  }, [isAdmin]);
+
+  const handleExitAdmin = useCallback(() => {
+    setCurrentScreen(POST_AUTH_HOME);
+    setActiveTab('home');
+  }, []);
+
+  const handleAdminTabChange = useCallback(
+    (tab: AdminTab) => {
+      if (!isAdmin) return;
+      setActiveAdminTab(tab);
+      setCurrentScreen('admin');
+    },
+    [isAdmin]
+  );
+
   const goToScreen = useCallback(
     (screen: AppScreen) => {
       if (!isAuthenticated && requiresAuth(screen)) {
         setCurrentScreen(AUTH_ENTRY_SCREEN);
         return;
       }
+      if (screen === 'admin' && !isAdmin) {
+        setCurrentScreen(POST_AUTH_HOME);
+        return;
+      }
       setCurrentScreen(screen);
     },
-    [isAuthenticated]
+    [isAuthenticated, isAdmin]
   );
 
   return {
     currentScreen,
     activeTab,
+    activeAdminTab,
     selectedWalker,
     bookingData,
     activeReservation,
@@ -427,6 +509,7 @@ export function useAppNavigation() {
     isAppReady,
     isNavigating,
     isAuthenticated,
+    isAdmin,
     onboardingCompleted,
     welcomeMode,
     handlers: {
@@ -442,6 +525,7 @@ export function useAppNavigation() {
       handleBookWalk,
       handleBookingContinue,
       handleCheckoutConfirm,
+      handleProfileCheckoutConfirm,
       handleViewReservations,
       handleViewTracking,
       handleViewWalkDetail,
@@ -452,6 +536,9 @@ export function useAppNavigation() {
       handleBackFromTracking,
       handleBackHome,
       handleTabChange,
+      handleOpenAdmin,
+      handleExitAdmin,
+      handleAdminTabChange,
       goToScreen,
     },
   };

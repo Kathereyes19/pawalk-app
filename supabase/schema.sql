@@ -14,6 +14,7 @@ create table if not exists public.profiles (
   avatar_emoji text,
   avatar_url text,
   language text default 'es',
+  role text not null default 'user' check (role in ('user', 'admin')),
   onboarding_completed boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

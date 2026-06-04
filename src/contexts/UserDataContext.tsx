@@ -8,15 +8,18 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { loadUserBundle } from '@/features/user';
+import { loadUserBundle, resolveUserRole } from '@/features/user';
 import { resolveUserId } from '@/lib/mockUser';
 import type { Pet, UserProfile } from '@/types';
+import type { UserRole } from '@/types/role';
 
 export interface UserDataContextValue {
   userId: string | null;
   profile: UserProfile | null;
   pets: Pet[];
   onboardingCompleted: boolean;
+  role: UserRole;
+  isAdmin: boolean;
   isLoading: boolean;
   setProfile: (profile: UserProfile | null) => void;
   setPets: (pets: Pet[]) => void;
@@ -34,6 +37,12 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [pets, setPets] = useState<Pet[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const role = useMemo(
+    () => resolveUserRole(profile, profile?.email ?? user?.email ?? null),
+    [profile, user?.email]
+  );
+  const isAdmin = role === 'admin';
 
   const refreshUserData = useCallback(async () => {
     if (!userId) {
@@ -72,6 +81,8 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
       profile,
       pets,
       onboardingCompleted,
+      role,
+      isAdmin,
       isLoading: authLoading || isLoading,
       setProfile,
       setPets,
@@ -83,6 +94,8 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
       profile,
       pets,
       onboardingCompleted,
+      role,
+      isAdmin,
       authLoading,
       isLoading,
       refreshUserData,

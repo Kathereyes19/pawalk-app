@@ -17,12 +17,13 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { WALKER_REVIEWS, WALKER_RATING_BREAKDOWN } from '../data/walkerProfileData';
-import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconButton } from '../components/IconButton';
 import { WalkerReviewsModal } from '../components/walker/WalkerReviewsModal';
 import { WalkerAvailabilityBadge } from '../components/walker/WalkerAvailabilityBadge';
 import { ProviderProfileSections } from '../components/walker/ProviderProfileSections';
+import { ProviderProfileDesktopLayout } from '../components/walker/profile/ProviderProfileDesktopLayout';
+import { ProfileBookCtaButton } from '../components/walker/profile/ProfileBookCtaButton';
 import { canBookImmediately } from '@/lib/walkers/availability';
 import { getWalkerHomeCategory } from '@/lib/walkers/serviceCategory';
 import {
@@ -32,18 +33,25 @@ import {
 } from '@/lib/providers/serviceExperience';
 import { Avatar } from '../components/Avatar';
 import { getWalkerAvatarProps } from '@/lib/avatars';
-import type { Walker } from '@/types';
+import type { BookingData, CheckoutPaymentSelection, Pet, Walker } from '@/types';
 
 interface WalkerProfileScreenProps {
   walker: Walker;
+  pets: Pet[];
   onBack: () => void;
   onBookWalk: () => void;
+  onProfileCheckoutConfirm: (
+    bookingData: BookingData,
+    selection: CheckoutPaymentSelection
+  ) => Promise<{ error: string | null }>;
 }
 
 export const WalkerProfileScreen: React.FC<WalkerProfileScreenProps> = ({
   walker,
+  pets,
   onBack,
   onBookWalk,
+  onProfileCheckoutConfirm,
 }) => {
   const { t } = useLanguage();
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
@@ -87,7 +95,8 @@ export const WalkerProfileScreen: React.FC<WalkerProfileScreenProps> = ({
         : 'from-primary via-secondary to-accent';
 
   return (
-    <div className="h-full overflow-y-auto pb-32 bg-background-secondary">
+    <>
+      <div className="md:hidden h-full overflow-y-auto pb-32 bg-background-secondary">
       <WalkerReviewsModal
         open={showAllReviews}
         onClose={() => setShowAllReviews(false)}
@@ -238,12 +247,26 @@ export const WalkerProfileScreen: React.FC<WalkerProfileScreenProps> = ({
               {instantBooking ? 'Reserva instantánea' : 'Agendamiento futuro'}
             </p>
           </div>
-          <Button onClick={onBookWalk} size="xl" className="shadow-xl px-6">
-            <Calendar className="w-5 h-5 mr-2" />
+          <ProfileBookCtaButton
+            onClick={onBookWalk}
+            fullWidth={false}
+            emphasisFrame={false}
+            className="shrink-0 min-w-[148px] px-6"
+          >
+            <Calendar className="w-5 h-5 shrink-0" aria-hidden />
             {bookCta}
-          </Button>
+          </ProfileBookCtaButton>
         </div>
       </motion.div>
-    </div>
+      </div>
+
+      <ProviderProfileDesktopLayout
+        walker={walker}
+        pets={pets}
+        onBack={onBack}
+        onProfileCheckoutConfirm={onProfileCheckoutConfirm}
+        verifiedLabel={t('walker.verified')}
+      />
+    </>
   );
 };

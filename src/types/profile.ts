@@ -1,3 +1,5 @@
+import type { UserRole } from './role';
+
 /** Shape produced by PersonalProfileSetupScreen → maps to `profiles` table */
 export interface UserProfile {
   avatar: string;
@@ -9,6 +11,7 @@ export interface UserProfile {
   emergencyContact: string;
   emergencyPhone: string;
   language: 'es' | 'en';
+  role?: UserRole;
   notifications: {
     push: boolean;
     email: boolean;
@@ -29,6 +32,7 @@ export interface ProfileRow {
   avatar_emoji: string | null;
   avatar_url: string | null;
   language: string | null;
+  role: string | null;
   onboarding_completed: boolean;
   created_at?: string;
   updated_at?: string;

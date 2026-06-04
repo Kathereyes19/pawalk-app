@@ -120,8 +120,92 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-24 bg-background-secondary">
-      <div className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-10">
+    <div className="h-full md:flex md:overflow-hidden bg-background-secondary">
+      <aside className="hidden md:flex md:flex-col md:w-[280px] md:shrink-0 md:border-r md:border-border md:bg-background md:overflow-y-auto">
+        <div className="p-5 border-b border-border">
+          <h1 className="text-xl font-bold">{t('reservations.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('reservations.subtitle')}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRefresh}
+            loading={isRefreshing}
+            className="mt-4"
+            aria-label={t('reservations.refresh')}
+          >
+            <RefreshCw className="w-4 h-4" />
+            {t('reservations.refresh')}
+          </Button>
+        </div>
+
+        <nav className="p-4 space-y-2 border-b border-border">
+          {tabs.map(({ id, icon: Icon }) => {
+            const count =
+              id === 'upcoming'
+                ? grouped.upcoming.length
+                : id === 'active'
+                  ? grouped.active.length
+                  : grouped.history.length;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
+                  activeTab === id
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'bg-card border border-border text-muted-foreground hover:border-primary/30'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="flex-1 text-left">{t(`reservations.tab.${id}`)}</span>
+                {count > 0 && (
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${
+                      activeTab === id ? 'bg-white/20' : 'bg-muted'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
+            Categoría
+          </p>
+          {categoryFilters.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setCategoryFilter(id)}
+              className={`w-full text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                categoryFilter === id
+                  ? 'bg-secondary text-secondary-foreground shadow-sm'
+                  : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-auto p-4 border-t border-border text-xs text-muted-foreground">
+          {filteredReservations.length > 0 && (
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4" />
+              {t('reservations.count').replace('{count}', String(filteredReservations.length))}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 overflow-y-auto pb-24 md:pb-6">
+      <div className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-10 md:hidden">
         <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">{t('reservations.title')}</h1>
@@ -194,9 +278,16 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
         </div>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="hidden md:block px-6 pt-6 pb-2">
+        <h2 className="text-lg font-bold">{t(`reservations.tab.${activeTab}`)}</h2>
+        <p className="text-sm text-muted-foreground">
+          {currentList.length} reserva{currentList.length === 1 ? '' : 's'}
+        </p>
+      </div>
+
+      <div className="p-4 md:p-6 md:pt-4 space-y-3 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-4 md:space-y-0">
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="flex flex-col items-center justify-center py-16 gap-3 md:col-span-2 xl:col-span-3">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
             <p className="text-sm text-muted-foreground">{t('reservations.loading')}</p>
           </div>
@@ -206,7 +297,7 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4"
+            className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4 md:col-span-2 xl:col-span-3"
           >
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
@@ -225,7 +316,7 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="rounded-2xl border border-border bg-card p-8 text-center"
+            className="rounded-2xl border border-border bg-card p-8 text-center md:col-span-2 xl:col-span-3"
           >
             <div className="w-16 h-16 rounded-2xl bg-muted mx-auto mb-4 flex items-center justify-center text-3xl">
               {emptyCopy().emoji}
@@ -263,11 +354,12 @@ export const ReservationsScreen: React.FC<ReservationsScreenProps> = ({
           ))}
 
         {!isLoading && !error && filteredReservations.length > 0 && (
-          <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground md:hidden">
             <CalendarDays className="w-4 h-4" />
             {t('reservations.count').replace('{count}', String(filteredReservations.length))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
